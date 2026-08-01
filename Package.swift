@@ -1,0 +1,24 @@
+// swift-tools-version: 6.1
+import PackageDescription
+
+let package = Package(
+    name: "NapeProFix",
+    platforms: [.macOS(.v14)],
+    products: [
+        .executable(name: "NapeProFix", targets: ["NapeProFix"])
+    ],
+    targets: [
+        .executableTarget(
+            name: "NapeProFix",
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("CoreGraphics"),
+                .linkedFramework("ServiceManagement")
+            ]
+        ),
+        .testTarget(
+            name: "NapeProFixTests",
+            dependencies: ["NapeProFix"]
+        )
+    ]
+)
