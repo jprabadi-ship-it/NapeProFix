@@ -30,6 +30,14 @@ cp -R /tmp/napeprofix-stage/NapeProFix.app /Applications/
 
 `build-app.sh` はキーチェーンの Apple Development / Developer ID 証明書で署名します（`NAPEPROFIX_SIGN_IDENTITY` で明示指定も可能）。署名IDが安定していれば、再ビルドしてもアクセシビリティの許可は維持されます。プロジェクトがGoogleドライブ上にあると拡張属性が即座に復活して `codesign` が失敗するため、アプリバンドルは `/tmp/napeprofix-stage` で組み立てて署名しています。
 
+配布用の DMG を作る場合:
+
+```sh
+./scripts/make-dmg.sh
+```
+
+`build/NapeProFix.dmg` ができます。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名した本人の Mac 以外では、初回に右クリック →「開く」が必要です。
+
 アイコンはコードから生成します。
 
 ```sh
