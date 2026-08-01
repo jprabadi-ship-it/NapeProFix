@@ -16,6 +16,8 @@ final class GestureTap: @unchecked Sendable {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    /// Keys whose press was handled, so their release can be swallowed too.
+    private var swallowedKeys: Set<CGKeyCode> = []
 
     var isRunning: Bool { eventTap != nil }
 
@@ -79,8 +81,23 @@ final class GestureTap: @unchecked Sendable {
             return nil  // swallow both down and up
         }
 
-        if onKey?(keyCode, event.flags) == true {
-            return nil
+        // Act on the press only. Firing on key up as well ran the handler
+        // twice per press, which cancelled itself out whenever the action was
+        // a toggle — the layer switch went forward and straight back.
+        // The release still has to be swallowed so the key never reaches the
+        // app underneath.
+        switch type {
+        case .keyDown:
+            if onKey?(keyCode, event.flags) == true {
+                swallowedKeys.insert(keyCode)
+                return nil
+            }
+        case .keyUp:
+            if swallowedKeys.remove(keyCode) != nil {
+                return nil
+            }
+        default:
+            break
         }
         return Unmanaged.passUnretained(event)
     }

@@ -50,6 +50,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
+        // Clickable items first, status last. A menu bar menu opens downward,
+        // so the top is nearest the pointer; putting the read-only lines up
+        // there just pushes the buttons further away.
+        let login = item("ログイン時に起動", #selector(toggleLoginItem))
+        login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
+        menu.addItem(login)
+
+        menu.addItem(item("設定を開く…", #selector(openSettings)))
+        menu.addItem(.separator())
+        menu.addItem(item("90°回す", #selector(rotate)))
+        menu.addItem(item("次のレイヤーへ", #selector(nextLayer)))
+        menu.addItem(.separator())
+
         let status = model.isActive ? "動作中" : "アクセシビリティ権限が必要"
         let header = NSMenuItem(
             title: "NapeProFix — \(status)", action: nil, keyEquivalent: "")
@@ -61,16 +74,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: nil, keyEquivalent: "")
         layerItem.isEnabled = false
         menu.addItem(layerItem)
-
-        menu.addItem(.separator())
-        menu.addItem(item("90°回す", #selector(rotate)))
-        menu.addItem(item("次のレイヤーへ", #selector(nextLayer)))
-        menu.addItem(.separator())
-        menu.addItem(item("設定を開く…", #selector(openSettings)))
-
-        let login = item("ログイン時に起動", #selector(toggleLoginItem))
-        login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
-        menu.addItem(login)
 
         menu.addItem(.separator())
         menu.addItem(item("終了", #selector(quit)))

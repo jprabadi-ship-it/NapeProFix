@@ -1,15 +1,13 @@
 import Foundation
 
-/// The version, always shown down to the build number: `1.0.0.1`.
+/// The version shown in the UI: `1.0.1`.
 ///
-/// Reported as four parts so a rebuilt copy can be told apart from the one
-/// already installed — the first three come from CFBundleShortVersionString,
-/// the last from CFBundleVersion.
+/// `CFBundleVersion` is still incremented on every build because macOS wants a
+/// monotonic build counter, but it is not displayed — it made the version
+/// string longer without telling the user anything they act on. It is still
+/// visible in Finder's Get Info panel if a build ever needs pinning down.
 enum AppVersion {
-    static var full: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-        let build = info?["CFBundleVersion"] as? String ?? "0"
-        return "\(short).\(build)"
+    static var display: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }
 }

@@ -12,11 +12,10 @@ set -euo pipefail
 project_dir="${0:A:h:h}"
 volume_name="NapeProFix"
 
-# Version down to the build number, so two disk images are never confusable.
+# Named after the released version. CFBundleVersion keeps counting builds but
+# is not part of the name; a rebuilt disk image replaces the previous one.
 plist="$project_dir/Resources/Info.plist"
-short=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist")
-build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist")
-version="$short.$build"
+version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist")
 # Google Drive re-adds extended attributes the moment they are cleared, which
 # breaks codesign, so stage everything on a local disk.
 stage_dir="/tmp/napeprofix-dmg"

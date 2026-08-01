@@ -14,7 +14,7 @@ struct SettingsView: View {
                     .tabItem { Label("セットアップ", systemImage: "questionmark.circle") }
             }
 
-            Text("NapeProFix \(AppVersion.full)")
+            Text("NapeProFix \(AppVersion.display)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -35,11 +35,10 @@ private struct GestureTab: View {
             HStack {
                 Picker("編集するレイヤー", selection: $editingLayer) {
                     ForEach(0..<Settings.layerCount, id: \.self) { index in
-                        Text(model.settings.layer(index).isEmpty
-                             ? "レイヤー \(index)（未設定）" : "レイヤー \(index)").tag(index)
+                        Text(label(for: index)).tag(index)
                     }
                 }
-                .frame(width: 260)
+                .frame(width: 280)
 
                 Spacer()
 
@@ -73,13 +72,38 @@ private struct GestureTab: View {
                 }
                 Spacer()
             }
-            Text("登録したキーを Launcher で Nape Pro のボタンに割り当てると、"
-                 + "そのボタンでレイヤーを切り替えられます。何も設定していないレイヤーは飛ばします。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("登録したキーを Launcher で Nape Pro のボタン（同時押しなど）に割り当てると、"
+                     + "そのボタンでレイヤーを切り替えられます。"
+                     + "何も設定していないレイヤーは飛ばします。")
+                // Choosing this key is a trade-off the user has to make for
+                // their own setup, so give them what they need to decide.
+                Text("このアプリは入力元のデバイスを区別できません。"
+                     + "登録したキーはキーボードから直接押しても同じ動作になり、"
+                     + "他のアプリからは使えなくなります。"
+                     + "テンキーのキーはテンキー付きキーボードで衝突し、"
+                     + "⌃⌥ + 英字はテンキーの影響を受けませんがアプリのショートカットと"
+                     + "衝突しうる、という違いがあります。")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             Spacer()
         }
+        // Follow the layer in use. Switching with the shortcut while this
+        // window is open otherwise leaves the picker pointing at the old
+        // layer, so the rows below describe something that is not in effect.
+        .onAppear { editingLayer = model.settings.activeLayer }
+        .onChange(of: model.settings.activeLayer) { _, newValue in
+            editingLayer = newValue
+        }
+    }
+
+    private func label(for index: Int) -> String {
+        var text = "レイヤー \(index)"
+        if index == model.settings.activeLayer { text += "（使用中）" }
+        else if model.settings.layer(index).isEmpty { text += "（未設定）" }
+        return text
     }
 }
 
