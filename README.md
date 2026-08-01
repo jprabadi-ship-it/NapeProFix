@@ -36,7 +36,7 @@ cp -R /tmp/napeprofix-stage/NapeProFix.app /Applications/
 ./scripts/make-dmg.sh
 ```
 
-`build/NapeProFix.dmg` ができます。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名した本人の Mac 以外では、初回に右クリック →「開く」が必要です。
+`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.0.0.1.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名した本人の Mac 以外では、初回に右クリック →「開く」が必要です。
 
 アイコンはコードから生成します。
 
@@ -83,6 +83,12 @@ Launcher で修飾キーを付けると、**ジェスチャ1回ごとにその�
 初期化するとジェスチャのキー割り当てが消えますが、**オクタシフトの回転設定も既定値に戻ります**。キーだけ入れ直すと向きがズレたままになります。
 
 回転はデバイス側とアプリ側の両方にあるため、片方だけ変えると必ずズレます。キーを入れ直したあと、アプリのメニューで「0°に戻す」、それでもズレていれば「90°回す」で合わせてください。
+
+## バージョン
+
+`メジャー.マイナー.パッチ.ビルド` の4桁で表記します。ビルド番号まで含めるので、同じ 1.0.0 でも作り直した版を区別できます。`Resources/Info.plist` の `CFBundleShortVersionString`（前3桁）と `CFBundleVersion`（ビルド番号）で管理し、設定画面の右下に表示されます。
+
+変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
 
 ## 制約
 
