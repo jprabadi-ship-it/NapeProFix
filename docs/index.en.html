@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NapeProFix — Customize the trackball gestures on the Keychron Nape Pro</title>
+<meta name="description" content="A macOS menu bar app that maps the Keychron Nape Pro's four trackball gestures to built-in actions or any keyboard shortcut. No Hammerspoon, no Karabiner. Free, ad-free, and makes no network connections.">
+<link rel="canonical" href="https://napeprofix.gigowat.com/index.en.html">
+<link rel="alternate" hreflang="ja" href="https://napeprofix.gigowat.com/index.ja.html">
+<link rel="alternate" hreflang="en" href="https://napeprofix.gigowat.com/index.en.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NapeProFix">
+<meta property="og:title" content="NapeProFix — Customize the trackball gestures on the Keychron Nape Pro">
+<meta property="og:description" content="A macOS menu bar app that maps the four trackball gestures to built-in actions or any keyboard shortcut. Self-contained.">
+<meta property="og:url" content="https://napeprofix.gigowat.com/index.en.html">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>NapeProFix</h1>
+    <p class="tagline">Make the Keychron Nape Pro's trackball gestures<br>work the way you do.</p>
+    <div class="cta">
+      <a class="button" href="https://github.com/jprabadi-ship-it/NapeProFix/releases/latest">Download for free</a>
+      <a class="button secondary" href="#features">What it does</a>
+    </div>
+    <p class="note" style="margin-top:20px">macOS 14 or later / Lives in the menu bar / MIT licensed</p>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What it does</h2>
+    <p class="lede">No Hammerspoon, no Karabiner. The app is self-contained.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Map all four directions</h3>
+        <p>Assign a built-in action or any keyboard shortcut to each of the up, down, left, and right gestures.</p>
+      </div>
+      <div class="card">
+        <h3>Layers 0–7</h3>
+        <p>Eight sets of assignments. Switch between them from the menu, or with a shortcut you record yourself.</p>
+      </div>
+      <div class="card">
+        <h3>Rotation correction</h3>
+        <p>If an Octa Shift reset leaves the orientation off, rotate it back in 90° steps from the menu. No need to reconfigure the device.</p>
+      </div>
+      <div class="card">
+        <h3>Scrolling that accelerates</h3>
+        <p>Keep rolling and each gesture scrolls further, from the default 8 lines up to 32.</p>
+      </div>
+      <div class="card">
+        <h3>Launch at login</h3>
+        <p>One setting, and the app is there every time you start your Mac.</p>
+      </div>
+      <div class="card">
+        <h3>Setup guide built in</h3>
+        <p>What to configure in Keychron Launcher is documented inside the app, with a diagram. It also appears automatically on first launch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="wrap">
+    <h2>Getting started</h2>
+    <p class="lede">Two things need setting up in Keychron Launcher. The same instructions are always available in the app under "Launcher setup".</p>
+
+    <h3 style="margin-top:24px">1. Keep gesture mode always on</h3>
+    <p>In Advanced mode, turn on <strong>"Always enable gesture mode"</strong>. Without it, gestures only fire while you hold the button assigned to Ball Gesture.</p>
+
+    <h3 style="margin-top:24px">2. Assign the four keys</h3>
+    <p>Assign these <strong>without any modifier keys</strong>.</p>
+    <table>
+      <tr><th>Direction</th><th>Standard key</th><th>macOS</th></tr>
+      <tr><td>Up</td><td>Print Screen</td><td><code>f13</code></td></tr>
+      <tr><td>Down</td><td>÷ (numpad)</td><td><code>pad/</code></td></tr>
+      <tr><td>Left</td><td>Num Lock</td><td><code>padclear</code></td></tr>
+      <tr><td>Right</td><td>Insert</td><td><code>help</code></td></tr>
+    </table>
+    <p class="note">Launcher sometimes displays Num Lock as <code>Num&lt;br/&gt;Lock</code>. That is a display bug in Launcher — the setting itself is correct, so leave it as is.</p>
+
+    <h3 style="margin-top:24px">3. Grant Accessibility access</h3>
+    <p>You are prompted on first launch. Once granted, it takes effect within a few seconds — no restart needed.</p>
+  </div>
+</section>
+
+<section id="notes">
+  <div class="wrap">
+    <h2>Worth knowing</h2>
+
+    <details>
+      <summary>Why modifier keys must not be used</summary>
+      <p>When Launcher adds a modifier, that modifier is fully pressed and released on every single gesture. Roll continuously and it behaves like Option being hammered, which makes apps misfire.</p>
+      <p>The app cannot work around this. <code>flagsChanged</code> arrives before the character key, so at that moment there is no way to tell a gesture from ordinary typing, and the device cannot be identified either. The four keys above do not exist on a Mac keyboard and do nothing when pressed on their own, which is what makes them safe to use unmodified.</p>
+    </details>
+
+    <details>
+      <summary>Pause and Scroll Lock cannot be used</summary>
+      <p>Pause has no key code on macOS and the event disappears entirely. Scroll Lock becomes F14, which the system consumes at a low level as brightness-down on older Mac keyboards, so no app can intercept it.</p>
+    </details>
+
+    <details>
+      <summary>Choosing a layer-switch key</summary>
+      <p>The app cannot tell which device input came from — the event tap carries no device information. A key you register behaves the same when pressed on your keyboard directly, and that key becomes unavailable to other apps.</p>
+      <p>So you have to pick a key you are willing to give up system-wide. Numpad keys such as <code>×</code> collide on a Mac with a numeric keypad; <code>⌃⌥</code> plus a letter may collide with other apps' shortcuts.</p>
+      <p>The "modifier pressed on every gesture" problem is specific to gestures, which fire repeatedly as you roll. A button press happens once, so modifiers are fine for layer switching.</p>
+    </details>
+
+    <details>
+      <summary>Recovering after resetting Launcher</summary>
+      <p>A reset clears the gesture key assignments — and also returns the Octa Shift rotation to its default. Restoring only the keys leaves the orientation off.</p>
+      <p>Rotation exists on both the device and the app, so changing one alone always leaves them mismatched. After restoring the keys, choose "Reset to 0°" in the app menu, and if it is still off, "Rotate 90°".</p>
+    </details>
+
+    <details>
+      <summary>Gatekeeper blocks the app on another Mac</summary>
+      <p>The app is not notarized. On macOS 15 and later, right-click → Open no longer works around this. Open System Settings → Privacy &amp; Security and press "Open Anyway" near the bottom.</p>
+    </details>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="wrap">
+    <h2>What it cannot do</h2>
+    <p class="lede">Limits that cannot be worked around.</p>
+    <table>
+      <tr><th>Limit</th><th>Why</th></tr>
+      <tr><td>Only four gesture directions</td><td>The firmware does not report diagonals separately</td></tr>
+      <tr><td>No battery level</td><td>The device does not expose the battery usage page over HID</td></tr>
+      <tr><td>Device layers are not mirrored</td><td>Only key codes arrive; no layer information comes with them</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>Download</h2>
+    <p class="price">Free</p>
+    <p class="lede">No ads, no in-app purchases, no network connections. The source is public.</p>
+    <div class="cta">
+      <a class="button" href="https://github.com/jprabadi-ship-it/NapeProFix/releases/latest">Get the latest release</a>
+      <a class="button secondary" href="https://github.com/jprabadi-ship-it/NapeProFix">Source code</a>
+    </div>
+    <p class="note" style="margin-top:20px">macOS 14 or later / Apple Silicon and Intel / MIT licensed</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      A personal project, published as is. There is no warranty and no support.
+      Issues and pull requests are welcome, but a response is not guaranteed.
+    </p>
+    <p>
+      If it helps you, something from the <a href="https://www.amazon.co.jp/hz/wishlist/ls/WFRWJC8J65NF">wishlist</a> would be appreciated.
+    </p>
+    <p>
+      <a href="https://gigowat.com/">Other apps</a> ・
+      <a href="privacy.en.html">Privacy policy</a> ・
+      <a href="https://github.com/jprabadi-ship-it/NapeProFix/issues">Report a bug</a> ・
+      <a href="index.ja.html">日本語</a>
+    </p>
+    <p class="note">
+      NapeProFix is an independent product and is not affiliated with Keychron.
+      Keychron and Nape Pro are trademarks of Keychron, used here only to
+      indicate compatibility with those products.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

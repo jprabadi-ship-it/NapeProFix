@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NapeProFix — Keychron Nape Pro のトラックボールジェスチャをカスタマイズ</title>
+<meta name="description" content="Keychron Nape Pro のトラックボールジェスチャ4方向に、好きな動作やキーボードショートカットを割り当てる macOS メニューバーアプリ。Hammerspoon も Karabiner も不要。無料・広告なし・ネットワーク通信なし。">
+<link rel="canonical" href="https://napeprofix.gigowat.com/index.ja.html">
+<link rel="alternate" hreflang="ja" href="https://napeprofix.gigowat.com/index.ja.html">
+<link rel="alternate" hreflang="en" href="https://napeprofix.gigowat.com/index.en.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NapeProFix">
+<meta property="og:title" content="NapeProFix — Keychron Nape Pro のトラックボールジェスチャをカスタマイズ">
+<meta property="og:description" content="トラックボールジェスチャ4方向に、好きな動作やキーボードショートカットを割り当てる macOS メニューバーアプリ。単体で完結します。">
+<meta property="og:url" content="https://napeprofix.gigowat.com/index.ja.html">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>NapeProFix</h1>
+    <p class="tagline">Keychron Nape Pro のトラックボールジェスチャを、<br>自分の使い方に合わせる。</p>
+    <div class="cta">
+      <a class="button" href="https://github.com/jprabadi-ship-it/NapeProFix/releases/latest">無料でダウンロード</a>
+      <a class="button secondary" href="#features">できること</a>
+    </div>
+    <p class="note" style="margin-top:20px">macOS 14 以降 / メニューバー常駐 / MIT ライセンス</p>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <h2>できること</h2>
+    <p class="lede">Hammerspoon も Karabiner も使いません。アプリ単体で完結します。</p>
+    <div class="grid">
+      <div class="card">
+        <h3>4方向に好きな動作を割り当て</h3>
+        <p>ジェスチャの上下左右それぞれに、組み込み動作または任意のキーボードショートカットを設定できます。</p>
+      </div>
+      <div class="card">
+        <h3>レイヤー 0〜7</h3>
+        <p>8つの割り当てセットを切り替えて使えます。切り替えはメニューからでも、自分で登録したショートカットからでも行えます。</p>
+      </div>
+      <div class="card">
+        <h3>回転補正</h3>
+        <p>オクタシフトの設定がリセットされて向きがズレても、メニューから90°刻みで戻せます。デバイスを設定し直す必要はありません。</p>
+      </div>
+      <div class="card">
+        <h3>連打で加速するスクロール</h3>
+        <p>続けて転がすとスクロール量が増えます。既定の8行から最大32行まで、勢いに応じて伸びます。</p>
+      </div>
+      <div class="card">
+        <h3>ログイン時に起動</h3>
+        <p>設定を1つ入れるだけで、Mac を起動するたびに自動で常駐します。</p>
+      </div>
+      <div class="card">
+        <h3>設定手順を内蔵</h3>
+        <p>Keychron Launcher 側で何を設定すべきかを、アプリのメニューからいつでも図付きで確認できます。初回起動時にも自動で表示されます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="setup">
+  <div class="wrap">
+    <h2>使い始めるまで</h2>
+    <p class="lede">Keychron Launcher 側の設定が2つ必要です。アプリの「動かないとき / Launcher の設定…」から同じ内容をいつでも確認できます。</p>
+
+    <h3 style="margin-top:24px">1. ジェスチャーモードを常時有効にする</h3>
+    <p>アドバンスモード &gt; <strong>「常にジェスチャーモードを有効にする」をオン</strong>にしてください。オフのままだと、「ボールジェスチャ」を割り当てたボタンを押している間しかジェスチャが発火しません。</p>
+
+    <h3 style="margin-top:24px">2. 4方向にキーを割り当てる</h3>
+    <p><strong>修飾キーを付けずに</strong>、以下のとおり割り当ててください。</p>
+    <table>
+      <tr><th>方向</th><th>通常キー</th><th>macOS</th></tr>
+      <tr><td>上</td><td>Print Screen</td><td><code>f13</code></td></tr>
+      <tr><td>下</td><td>÷（テンキー）</td><td><code>pad/</code></td></tr>
+      <tr><td>左</td><td>Num Lock</td><td><code>padclear</code></td></tr>
+      <tr><td>右</td><td>Insert</td><td><code>help</code></td></tr>
+    </table>
+    <p class="note">Launcher が Num Lock を <code>Num&lt;br/&gt;Lock</code> と表示することがありますが、これは Launcher 側の表示上の不具合です。設定内容としては正しいので、そのままで問題ありません。</p>
+
+    <h3 style="margin-top:24px">3. アクセシビリティ権限を許可する</h3>
+    <p>初回起動時に求められます。許可すると数秒で自動的に有効になり、アプリを再起動する必要はありません。</p>
+  </div>
+</section>
+
+<section id="notes">
+  <div class="wrap">
+    <h2>知っておくと困らないこと</h2>
+
+    <details>
+      <summary>なぜ修飾キーを使ってはいけないのか</summary>
+      <p>Launcher で修飾キーを付けると、ジェスチャ1回ごとにその修飾キーが完全に押されて離されます。連続で転がすと Option 連打のような状態になり、アプリ側が誤反応します。</p>
+      <p>これはアプリ側では対処できません。<code>flagsChanged</code> は文字キーより先に届くため、届いた時点ではジェスチャの一部か通常のキー入力かを判別できず、デバイスの識別も不可能です。上記の4キーは Mac のキーボードに存在せず、素で押しても何も起きないため、修飾キーなしで安全に使えます。</p>
+    </details>
+
+    <details>
+      <summary>Pause と Scroll Lock は使えません</summary>
+      <p>Pause は macOS でキーコードを持たず、イベントごと消えます。Scroll Lock は F14 になり、旧 Mac キーボードの輝度ダウンとしてシステムが低レイヤーで消費するため、どのアプリも横取りできません。</p>
+    </details>
+
+    <details>
+      <summary>レイヤー切替キーの選び方</summary>
+      <p>このアプリは入力元のデバイスを区別できません。イベントタップにデバイス情報が乗らないためです。登録したキーはキーボードから直接押しても同じ動作になり、そのキーは他のアプリからは使えなくなります。</p>
+      <p>つまり「システム全体で犠牲にしていいキー」を選ぶ必要があります。テンキー系（<code>×</code> など）はテンキー付きの Mac で衝突し、<code>⌃⌥</code> + 英字は他アプリのショートカットと衝突しうる、という選択になります。</p>
+      <p>なお「修飾キーを付けるとジェスチャ1回ごとに押されて離される」問題は、転がすたびに連続発火するジェスチャ固有のものです。ボタンの押下は1回きりなので、レイヤー切替には修飾キー付きの組み合わせを使って構いません。</p>
+    </details>
+
+    <details>
+      <summary>Launcher を初期化したときの復旧</summary>
+      <p>初期化するとジェスチャのキー割り当てが消えますが、オクタシフトの回転設定も既定値に戻ります。キーだけ入れ直すと向きがズレたままになります。</p>
+      <p>回転はデバイス側とアプリ側の両方にあるため、片方だけ変えると必ずズレます。キーを入れ直したあと、アプリのメニューで「0°に戻す」、それでもズレていれば「90°回す」で合わせてください。</p>
+    </details>
+
+    <details>
+      <summary>別の Mac に持っていくと Gatekeeper に止められます</summary>
+      <p>公証していないためです。macOS 15 以降は右クリック →「開く」では回避できません。システム設定 → プライバシーとセキュリティ を開き、下部に出る「このまま開く」を押してください。</p>
+    </details>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="wrap">
+    <h2>できないこと</h2>
+    <p class="lede">仕様上どうにもならない制約です。</p>
+    <table>
+      <tr><th>制約</th><th>理由</th></tr>
+      <tr><td>ジェスチャは4方向のみ</td><td>ファームウェアが斜めを区別して送らないため</td></tr>
+      <tr><td>バッテリー残量を表示できない</td><td>デバイスが HID でバッテリーの UsagePage を公開していないため</td></tr>
+      <tr><td>デバイス側のレイヤーと連動しない</td><td>届くのがキーコードだけで、レイヤー情報が乗ってこないため</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <h2>ダウンロード</h2>
+    <p class="price">無料</p>
+    <p class="lede">広告なし、アプリ内課金なし、ネットワーク通信なし。ソースコードも公開しています。</p>
+    <div class="cta">
+      <a class="button" href="https://github.com/jprabadi-ship-it/NapeProFix/releases/latest">最新版をダウンロード</a>
+      <a class="button secondary" href="https://github.com/jprabadi-ship-it/NapeProFix">ソースコード</a>
+    </div>
+    <p class="note" style="margin-top:20px">macOS 14 以降 / Apple Silicon・Intel 対応 / MIT ライセンス</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      個人的に作ったものを公開しています。動作保証やサポートはありません。
+      Issue や PR は歓迎しますが、対応をお約束はできません。
+    </p>
+    <p>
+      役に立ったら <a href="https://www.amazon.co.jp/hz/wishlist/ls/WFRWJC8J65NF">ほしい物リスト</a> から何か送ってもらえると喜びます。
+    </p>
+    <p>
+      <a href="https://gigowat.com/">ほかのアプリ</a> ・
+      <a href="privacy.ja.html">プライバシーポリシー</a> ・
+      <a href="https://github.com/jprabadi-ship-it/NapeProFix/issues">不具合の報告</a> ・
+      <a href="index.en.html">English</a>
+    </p>
+    <p class="note">
+      NapeProFix は Keychron とは関係のない独立した製品です。
+      Keychron および Nape Pro は Keychron の商標であり、
+      本アプリはこれらの製品との互換性を示す目的でのみ、その名称を使用しています。
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

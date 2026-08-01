@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NapeProFix</title>
+<link rel="alternate" hreflang="ja" href="https://napeprofix.gigowat.com/index.ja.html">
+<link rel="alternate" hreflang="en" href="https://napeprofix.gigowat.com/index.en.html">
+<link rel="alternate" hreflang="x-default" href="https://napeprofix.gigowat.com/index.en.html">
+<link rel="canonical" href="https://napeprofix.gigowat.com/index.en.html">
+<script>
+  // Japanese browsers get Japanese; everyone else gets English, matching the
+  // app itself. replace() keeps the router out of the back-button history.
+  (function () {
+    var languages = navigator.languages || [navigator.language || ""];
+    var japanese = languages.some(function (tag) { return /^ja\b/i.test(tag); });
+    location.replace(japanese ? "index.ja.html" : "index.en.html");
+  })();
+</script>
+<meta http-equiv="refresh" content="0; url=index.en.html">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap doc">
+  <p>Redirecting… <a href="index.en.html">English</a> / <a href="index.ja.html">日本語</a></p>
+</div>
+</body>
+</html>
