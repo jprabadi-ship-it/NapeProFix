@@ -129,6 +129,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Scroll tuning is easy to get lost in; this is the way back.
+    func resetScrollSettings() {
+        let defaults = Settings()
+        settings.scrollBase = defaults.scrollBase
+        settings.scrollStep = defaults.scrollStep
+        settings.scrollMax = defaults.scrollMax
+        settings.scrollWindow = defaults.scrollWindow
+    }
+
     func recordLayerCycleShortcut() {
         guard let shortcut = ShortcutRecorder.record(title: "レイヤー切替") else { return }
         settings.layerCycleShortcut = shortcut

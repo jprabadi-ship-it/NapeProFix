@@ -158,9 +158,12 @@ private struct ScrollTab: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
+            // The lower bound is 3, not 1: a single line per gesture looks
+            // identical to the app being broken, and nothing on screen points
+            // back at this setting as the cause.
             stepper("1回あたり", value: Binding(
                 get: { model.settings.scrollBase },
-                set: { model.settings.scrollBase = $0 }), range: 1...40, unit: "行")
+                set: { model.settings.scrollBase = $0 }), range: 3...40, unit: "行")
 
             stepper("連打1回ごとの増分", value: Binding(
                 get: { model.settings.scrollStep },
@@ -185,6 +188,8 @@ private struct ScrollTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Button("既定値に戻す") { model.resetScrollSettings() }
 
             Spacer()
         }
@@ -268,6 +273,18 @@ private struct SetupTab: View {
                      + "Launcher 側の表示上の不具合で、設定内容は正しいです。")
                 Text("・Launcher を初期化すると、キーの割り当てだけでなくオクタシフトの回転も"
                      + "既定値に戻ります。入れ直したあと回転補正を 0° にしてください。")
+
+                Divider()
+
+                HStack(spacing: 6) {
+                    Text("役に立ったら")
+                    Link("ほしい物リスト",
+                         destination: URL(string:
+                            "https://www.amazon.co.jp/hz/wishlist/ls/WFRWJC8J65NF")!)
+                    Text("から何か送ってもらえると喜びます。")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
