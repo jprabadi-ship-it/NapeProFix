@@ -59,5 +59,7 @@
   `flagsChanged` が文字キーより先に届くため、アプリ側では判別も除去もできません。
 - **Pause と Scroll Lock は割り当てに使えない。** Pause は macOS でキーコードを持たず、
   Scroll Lock は F14 として輝度ダウンに横取りされます。
-- **公証していない。** Developer ID Application 証明書がないため、
-  署名した本人の Mac 以外では初回に右クリック →「開く」が必要です。
+- **公証していない。** Developer ID Application 証明書がないため、別の Mac では
+  Gatekeeper に止められます。macOS 15 以降は右クリック →「開く」では回避できず、
+  システム設定 → プライバシーとセキュリティ の「このまま開く」を使うか、
+  `xattr -dr com.apple.quarantine` で隔離属性を外す必要があります。

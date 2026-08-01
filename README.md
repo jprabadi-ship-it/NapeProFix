@@ -36,7 +36,18 @@ cp -R /tmp/napeprofix-stage/NapeProFix.app /Applications/
 ./scripts/make-dmg.sh
 ```
 
-`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.0.0.1.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名した本人の Mac 以外では、初回に右クリック →「開く」が必要です。
+`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.0.0.1.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名は Apple Development 証明書で、これは開発用のものです。
+
+**別の Mac に持っていく場合**、Gatekeeper に止められます。macOS 15 以降は右クリック →「開く」では回避できません。次のどちらかで開いてください。
+
+- システム設定 → プライバシーとセキュリティ を開き、下部に出る「このまま開く」を押す
+- または、コピー先の Mac で一度だけ次を実行する
+
+```sh
+xattr -dr com.apple.quarantine /Applications/NapeProFix.app
+```
+
+どの Mac でもそのまま開けるようにするには、Apple Developer Program に登録して Developer ID Application 証明書を取得し、署名 → 公証 → ステープルまで行う必要があります。
 
 アイコンはコードから生成します。
 
