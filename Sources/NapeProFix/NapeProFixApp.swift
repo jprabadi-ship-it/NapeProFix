@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startTap()
         rebuildMenu()
+        showSetupOnFirstLaunch()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -162,7 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
         menu.addItem(login)
 
-        menu.addItem(item("Launcher の設定を表示…", #selector(showLauncherSetup)))
+        menu.addItem(item("動かないとき / Launcher の設定…", #selector(showLauncherSetup)))
         menu.addItem(.separator())
         menu.addItem(item("終了", #selector(quit)))
 
@@ -343,29 +344,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showLauncherSetup() {
         let rows = GestureKey.allCases
-            .map { "\($0.firmwareDirection.label)  →  \($0.launcherLabel)" }
+            .map { "　\($0.firmwareDirection.label)　→　\($0.launcherLabel)" }
             .joined(separator: "\n")
 
         let alert = NSAlert()
         alert.messageText = "Keychron Launcher 側の設定"
         alert.informativeText = """
-        アドバンスモードの「常にジェスチャーモードを有効にする」をオンに
-        してください。オフの場合、ジェスチャは「ボールジェスチャ」を
-        割り当てたボタンを押している間しか発火しません。
+        この2つが揃っていないとジェスチャは動きません。
 
-        そのうえで、トラックボールジェスチャに修飾キーなしで
-        以下を割り当ててください。
+        ■ アドバンスモード
+        「常にジェスチャーモードを有効にする」をオンにしてください。
+        オフの場合、ジェスチャは「ボールジェスチャ」を割り当てた
+        ボタンを押している間しか発火しません。
+
+        ■ トラックボールジェスチャ（修飾キーはすべてオフ）
 
         \(rows)
 
-        修飾キー（Control / Shift / Option / Command）は
-        4方向とも必ずオフにしてください。付けるとジェスチャ1回ごとに
-        その修飾キーが押されて離され、連打として扱われます。
+        設定後、オレンジの「保存」を押してください。
+
+        ─────────────────────────────
+
+        修飾キー（Control / Shift / Option / Command）は4方向とも
+        必ずオフにしてください。付けるとジェスチャ1回ごとにその修飾キーが
+        押されて離され、連打として扱われます。
 
         Pause と Scroll Lock は使えません。Pause は macOS でキーコードを
         持たず、Scroll Lock は輝度ダウンとして横取りされます。
+
+        Launcher が Num Lock を「Num<br/>Lock」と表示することがありますが、
+        これは Launcher 側の表示上の不具合で、設定内容としては正しいです。
+
+        Launcher を初期化した場合は、キーの割り当てだけでなく
+        オクタシフトの回転も既定値に戻ります。入れ直したあと、
+        メニューの「0°に戻す」で向きを合わせてください。
         """
         alert.runModal()
+    }
+
+    /// Shown once, on the very first launch. Everything here is discoverable
+    /// from the menu afterwards, but a first run with nothing configured on the
+    /// device side just looks broken otherwise.
+    private func showSetupOnFirstLaunch() {
+        let key = "hasShownSetup"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        showLauncherSetup()
     }
 
     @objc private func quit() {

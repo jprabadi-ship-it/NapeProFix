@@ -57,7 +57,9 @@ swift scripts/make-icon.swift "$PWD"
 | 左 | Num Lock | padclear |
 | 右 | Insert | help |
 
-この内容はアプリのメニュー「Launcher の設定を表示…」からも確認できます。
+この内容はアプリのメニュー「動かないとき / Launcher の設定…」からいつでも確認できます。初回起動時には自動で表示されます。
+
+Launcher が Num Lock を `Num<br/>Lock` と表示することがありますが、これは Launcher 側の表示上の不具合です。設定内容としては正しいので、そのままで問題ありません。
 
 ### 修飾キーを使ってはいけない理由
 
