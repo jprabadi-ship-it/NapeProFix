@@ -207,7 +207,6 @@ private struct ScrollTab: View {
 
 private struct SetupTab: View {
     @ObservedObject var model: AppModel
-    @State private var enlarged = false
 
     var body: some View {
         ScrollView {
@@ -240,7 +239,9 @@ private struct SetupTab: View {
                 }
 
                 if let image = Bundle.module.image(forResource: "launcher-setup") {
-                    Button { enlarged = true } label: {
+                    Button {
+                        ImageViewer.show(image, title: "Launcher のトラックボールジェスチャ設定")
+                    } label: {
                         Image(nsImage: image)
                             .resizable().scaledToFit()
                             .frame(maxWidth: .infinity)
@@ -248,9 +249,10 @@ private struct SetupTab: View {
                                 .stroke(.separator))
                     }
                     .buttonStyle(.plain)
-                    .help("クリックで拡大")
+                    .help("クリックで別ウインドウに拡大表示")
 
-                    Text("この状態が正解です。クリックすると拡大表示します。"
+                    Text("この状態が正解です。クリックすると別ウインドウで開き、"
+                         + "ピンチやスクロールで拡大できます。"
                          + "設定後、オレンジの「保存」を押してください。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -268,20 +270,6 @@ private struct SetupTab: View {
                      + "既定値に戻ります。入れ直したあと回転補正を 0° にしてください。")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        // A sheet rather than a separate window: the screenshot is only ever
-        // looked at while reading these instructions.
-        .sheet(isPresented: $enlarged) {
-            if let image = Bundle.module.image(forResource: "launcher-setup") {
-                VStack(spacing: 12) {
-                    Image(nsImage: image)
-                        .resizable().scaledToFit()
-                        .frame(maxWidth: 1100, maxHeight: 700)
-                    Button("閉じる") { enlarged = false }
-                        .keyboardShortcut(.cancelAction)
-                }
-                .padding(20)
-            }
         }
     }
 }
