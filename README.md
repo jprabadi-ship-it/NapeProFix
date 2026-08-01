@@ -57,6 +57,8 @@ swift scripts/make-icon.swift "$PWD"
 | 左 | Num Lock | padclear |
 | 右 | Insert | help |
 
+![Launcher のトラックボールジェスチャ設定](Sources/NapeProFix/Resources/launcher-setup.png)
+
 この内容はアプリのメニュー「動かないとき / Launcher の設定…」からいつでも確認できます。初回起動時には自動で表示されます。
 
 Launcher が Num Lock を `Num<br/>Lock` と表示することがありますが、これは Launcher 側の表示上の不具合です。設定内容としては正しいので、そのままで問題ありません。

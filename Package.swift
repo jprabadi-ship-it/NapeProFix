@@ -10,6 +10,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "NapeProFix",
+            resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("CoreGraphics"),

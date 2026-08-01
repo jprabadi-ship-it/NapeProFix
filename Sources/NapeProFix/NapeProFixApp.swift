@@ -379,7 +379,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         オクタシフトの回転も既定値に戻ります。入れ直したあと、
         メニューの「0°に戻す」で向きを合わせてください。
         """
+        alert.accessoryView = setupScreenshotView()
+        // An accessory app is never frontmost on its own, so the alert would
+        // open behind whatever the user is looking at.
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.level = .floating
         alert.runModal()
+    }
+
+    /// The reference screenshot, so the Launcher can be compared side by side
+    /// rather than read off a list.
+    private func setupScreenshotView() -> NSView? {
+        guard let image = Bundle.module.image(forResource: "launcher-setup") else { return nil }
+
+        let width: CGFloat = 560
+        let height = (image.size.height / image.size.width * width).rounded()
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height + 22))
+
+        let view = NSImageView(frame: NSRect(x: 0, y: 22, width: width, height: height))
+        view.image = image
+        view.imageScaling = .scaleProportionallyUpOrDown
+        container.addSubview(view)
+
+        let caption = NSTextField(labelWithString:
+            "この状態が正解です。修飾キーは4つとも押されていない状態にしてください。")
+        caption.font = .systemFont(ofSize: 11)
+        caption.textColor = .secondaryLabelColor
+        caption.frame = NSRect(x: 0, y: 0, width: width, height: 16)
+        container.addSubview(caption)
+
+        return container
     }
 
     /// Shown once, on the very first launch. Everything here is discoverable

@@ -20,6 +20,9 @@ mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources"
 cp "$project_dir/.build/release/NapeProFix" "$contents_dir/MacOS/NapeProFix"
 cp "$project_dir/Resources/Info.plist" "$contents_dir/Info.plist"
 cp "$project_dir/Resources/AppIcon.icns" "$contents_dir/Resources/AppIcon.icns"
+# SwiftPM keeps target resources in their own bundle; Bundle.module looks for
+# it next to the executable's resources.
+cp -R "$project_dir/.build/release/NapeProFix_NapeProFix.bundle" "$contents_dir/Resources/"
 
 # A stable signing identity keeps the app's designated requirement unchanged
 # across rebuilds, so the accessibility approval survives an update. Ad-hoc
