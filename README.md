@@ -10,6 +10,7 @@ Hammerspoon も Karabiner も使いません。単体で完結します。
 - レイヤー 0〜7。切り替えはメニューまたは登録したショートカットから
 - 回転補正。オクタシフトがリセットされて向きがズレても、メニューから90°刻みで戻せる
 - スクロールは連打で加速（既定 8行 → 最大32行）
+- クリック時のカーソル固定。押す・離す瞬間のボールの回転でクリック位置がずれるのを防ぐ
 - ログイン時に起動
 
 ## ビルド
@@ -36,7 +37,7 @@ cp -R /tmp/napeprofix-stage/NapeProFix.app /Applications/
 ./scripts/make-dmg.sh
 ```
 
-`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.0.1.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名は Apple Development 証明書で、これは開発用のものです。
+`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.1.0.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名は Apple Development 証明書で、これは開発用のものです。
 
 **別の Mac に持っていく場合**、Gatekeeper に止められます。macOS 15 以降は右クリック →「開く」では回避できません。次のどちらかで開いてください。
 

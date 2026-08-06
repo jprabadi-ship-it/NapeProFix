@@ -10,6 +10,8 @@ struct SettingsView: View {
                     .tabItem { Label("ジェスチャ", systemImage: "circle.circle") }
                 ScrollTab(model: model)
                     .tabItem { Label("スクロール", systemImage: "arrow.up.arrow.down") }
+                PointerTab(model: model)
+                    .tabItem { Label("ポインタ", systemImage: "cursorarrow") }
                 SetupTab(model: model)
                     .tabItem { Label("セットアップ", systemImage: "questionmark.circle") }
             }
@@ -227,6 +229,71 @@ private struct ScrollTab: View {
                 Text("\(value.wrappedValue) \(unit)").monospacedDigit()
             }
             .frame(width: 140)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - ポインタ
+
+private struct PointerTab: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Toggle("クリック時にカーソルを固定する", isOn: Binding(
+                get: { model.settings.clickFreezeEnabled },
+                set: { model.settings.clickFreezeEnabled = $0 }))
+                .font(.headline)
+
+            Text("ボタンを押している間カーソルを止め、離したあと元の位置に戻します。"
+                 + "指がボールに触れてクリック位置がずれるのを防ぎます。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("ドラッグとみなす移動量")
+                        .frame(width: 170, alignment: .leading)
+                    Stepper(value: Binding(
+                        get: { model.settings.clickFreezeThreshold },
+                        set: { model.settings.clickFreezeThreshold = $0 }), in: 2...40) {
+                            Text("\(model.settings.clickFreezeThreshold) px").monospacedDigit()
+                        }
+                        .frame(width: 130)
+                    Spacer()
+                }
+                Text("押している間にこれ以上動かしたら、意図的なドラッグとみなして固定を解除します。"
+                     + "小さくするとドラッグしやすく、大きくするとズレに強くなります。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("離したあとの保持時間")
+                        .frame(width: 170, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { model.settings.clickFreezeHold },
+                        set: { model.settings.clickFreezeHold = $0 }), in: 0...0.4)
+                    .frame(width: 190)
+                    Text(String(format: "%.2f 秒", model.settings.clickFreezeHold))
+                        .monospacedDigit()
+                }
+                Text("指を離す瞬間にもボールは動きます。ここを長くするとその分まで戻します。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Button("既定値に戻す") { model.resetPointerSettings() }
+
+            Divider()
+
+            Text("それでも全体に過敏な場合は、Keychron Launcher の DPI Settings で "
+                 + "DPI を下げるほうが根本的です。このアプリはクリック時のズレだけを扱います。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Spacer()
         }
     }

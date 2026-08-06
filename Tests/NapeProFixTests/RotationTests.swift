@@ -90,6 +90,31 @@ import Testing
     #expect(decoded.layer(0).shortcuts[.right]?.display == "⌘K")
 }
 
+@Test func clickFreezeSettingsSurviveEncoding() throws {
+    var settings = Settings()
+    settings.clickFreezeEnabled = false
+    settings.clickFreezeThreshold = 20
+    settings.clickFreezeHold = 0.3
+
+    let decoded = try JSONDecoder().decode(
+        Settings.self, from: try JSONEncoder().encode(settings))
+
+    #expect(decoded.clickFreezeEnabled == false)
+    #expect(decoded.clickFreezeThreshold == 20)
+    #expect(decoded.clickFreezeHold == 0.3)
+}
+
+/// Settings saved before click freeze existed must load with it enabled,
+/// not with a zero threshold that would pin the cursor on every click.
+@Test func decodesSettingsWithoutClickFreeze() throws {
+    let json = #"{"rotation":1,"activeLayer":0,"scrollBase":8}"#
+    let decoded = try JSONDecoder().decode(Settings.self, from: Data(json.utf8))
+
+    #expect(decoded.clickFreezeEnabled == true)
+    #expect(decoded.clickFreezeThreshold == 8)
+    #expect(decoded.clickFreezeHold == 0.12)
+}
+
 @Test func layerCycleSkipsEmptyLayers() {
     var settings = Settings()
     settings.update(layer: 3) { $0.actions[.up] = .missionControl }

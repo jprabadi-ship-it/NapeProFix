@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
         didSet {
             SettingsStore.save(settings)
             runner.update(settings: settings)
+            clickFreeze.settings = settings
         }
     }
 
@@ -18,6 +19,7 @@ final class AppModel: ObservableObject {
 
     private let tap = GestureTap()
     private lazy var runner = ActionRunner(settings: settings)
+    private lazy var clickFreeze = ClickFreeze(settings: settings)
     private var permissionTimer: Timer?
 
     init() {
@@ -63,6 +65,7 @@ final class AppModel: ObservableObject {
     func start() {
         if tap.start() {
             isActive = true
+            clickFreeze.start()
             permissionTimer?.invalidate()
             permissionTimer = nil
             return
@@ -97,6 +100,8 @@ final class AppModel: ObservableObject {
 
     func stop() {
         tap.stop()
+        // Must run: the cursor is detached from the mouse while frozen.
+        clickFreeze.stop()
     }
 
     // MARK: - Edits
@@ -136,6 +141,13 @@ final class AppModel: ObservableObject {
         settings.scrollStep = defaults.scrollStep
         settings.scrollMax = defaults.scrollMax
         settings.scrollWindow = defaults.scrollWindow
+    }
+
+    func resetPointerSettings() {
+        let defaults = Settings()
+        settings.clickFreezeEnabled = defaults.clickFreezeEnabled
+        settings.clickFreezeThreshold = defaults.clickFreezeThreshold
+        settings.clickFreezeHold = defaults.clickFreezeHold
     }
 
     func recordLayerCycleShortcut() {

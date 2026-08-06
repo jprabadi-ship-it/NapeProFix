@@ -86,9 +86,18 @@ struct Settings: Codable {
     var scrollMax = 32
     var scrollWindow: TimeInterval = 0.4
 
+    /// Hold the cursor still while a mouse button is down, so a click lands
+    /// where it was aimed rather than where the ball drifted to.
+    var clickFreezeEnabled = true
+    /// Pixels of movement during the press that count as a deliberate drag.
+    var clickFreezeThreshold = 8
+    /// Seconds to stay frozen after the button is released.
+    var clickFreezeHold: TimeInterval = 0.12
+
     private enum CodingKeys: String, CodingKey {
         case rotation, activeLayer, layers, layerCycleShortcut
         case scrollBase, scrollStep, scrollMax, scrollWindow
+        case clickFreezeEnabled, clickFreezeThreshold, clickFreezeHold
         // Pre-layer format, still read so existing settings survive.
         case actions, shortcuts
     }
@@ -106,6 +115,12 @@ struct Settings: Codable {
         scrollWindow = try c.decodeIfPresent(TimeInterval.self, forKey: .scrollWindow)
             ?? defaults.scrollWindow
         layerCycleShortcut = try c.decodeIfPresent(Shortcut.self, forKey: .layerCycleShortcut)
+        clickFreezeEnabled = try c.decodeIfPresent(Bool.self, forKey: .clickFreezeEnabled)
+            ?? defaults.clickFreezeEnabled
+        clickFreezeThreshold = try c.decodeIfPresent(Int.self, forKey: .clickFreezeThreshold)
+            ?? defaults.clickFreezeThreshold
+        clickFreezeHold = try c.decodeIfPresent(TimeInterval.self, forKey: .clickFreezeHold)
+            ?? defaults.clickFreezeHold
 
         if let stored = try c.decodeIfPresent([Int: LayerConfig].self, forKey: .layers),
            !stored.isEmpty {
@@ -133,6 +148,9 @@ struct Settings: Codable {
         try c.encode(scrollStep, forKey: .scrollStep)
         try c.encode(scrollMax, forKey: .scrollMax)
         try c.encode(scrollWindow, forKey: .scrollWindow)
+        try c.encode(clickFreezeEnabled, forKey: .clickFreezeEnabled)
+        try c.encode(clickFreezeThreshold, forKey: .clickFreezeThreshold)
+        try c.encode(clickFreezeHold, forKey: .clickFreezeHold)
     }
 
     func layer(_ index: Int) -> LayerConfig {
