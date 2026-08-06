@@ -79,10 +79,11 @@ final class ActionRunner {
 
         let amount = min(settings.scrollBase + scrollStreak * settings.scrollStep,
                          settings.scrollMax)
+        let direction = settings.scrollInverted ? -sign : sign
         guard let event = CGEvent(scrollWheelEvent2Source: nil,
                                   units: .line,
                                   wheelCount: 1,
-                                  wheel1: Int32(amount) * sign,
+                                  wheel1: Int32(amount) * direction,
                                   wheel2: 0,
                                   wheel3: 0) else { return }
         event.flags = []

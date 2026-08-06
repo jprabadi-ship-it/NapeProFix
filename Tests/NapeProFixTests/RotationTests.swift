@@ -90,6 +90,21 @@ import Testing
     #expect(decoded.layer(0).shortcuts[.right]?.display == "⌘K")
 }
 
+@Test func scrollInversionSurvivesEncoding() throws {
+    var settings = Settings()
+    #expect(settings.scrollInverted == false)
+    settings.scrollInverted = true
+
+    let decoded = try JSONDecoder().decode(
+        Settings.self, from: try JSONEncoder().encode(settings))
+    #expect(decoded.scrollInverted == true)
+
+    // Settings saved before the switch existed must not come back inverted.
+    let old = try JSONDecoder().decode(
+        Settings.self, from: Data(#"{"rotation":1,"scrollBase":8}"#.utf8))
+    #expect(old.scrollInverted == false)
+}
+
 @Test func clickFreezeSettingsSurviveEncoding() throws {
     var settings = Settings()
     settings.clickFreezeEnabled = false

@@ -141,6 +141,7 @@ final class AppModel: ObservableObject {
         settings.scrollStep = defaults.scrollStep
         settings.scrollMax = defaults.scrollMax
         settings.scrollWindow = defaults.scrollWindow
+        settings.scrollInverted = defaults.scrollInverted
     }
 
     func resetPointerSettings() {

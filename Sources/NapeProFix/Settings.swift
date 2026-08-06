@@ -85,6 +85,10 @@ struct Settings: Codable {
     var scrollStep = 5
     var scrollMax = 32
     var scrollWindow: TimeInterval = 0.4
+    /// Flips which way the content moves for a given roll direction. Separate
+    /// from macOS's own natural-scrolling setting, so this can be corrected
+    /// for the trackball without changing the rest of the system.
+    var scrollInverted = false
 
     /// Hold the cursor still while a mouse button is down, so a click lands
     /// where it was aimed rather than where the ball drifted to.
@@ -96,7 +100,7 @@ struct Settings: Codable {
 
     private enum CodingKeys: String, CodingKey {
         case rotation, activeLayer, layers, layerCycleShortcut
-        case scrollBase, scrollStep, scrollMax, scrollWindow
+        case scrollBase, scrollStep, scrollMax, scrollWindow, scrollInverted
         case clickFreezeEnabled, clickFreezeThreshold, clickFreezeHold
         // Pre-layer format, still read so existing settings survive.
         case actions, shortcuts
@@ -114,6 +118,8 @@ struct Settings: Codable {
         scrollMax = try c.decodeIfPresent(Int.self, forKey: .scrollMax) ?? defaults.scrollMax
         scrollWindow = try c.decodeIfPresent(TimeInterval.self, forKey: .scrollWindow)
             ?? defaults.scrollWindow
+        scrollInverted = try c.decodeIfPresent(Bool.self, forKey: .scrollInverted)
+            ?? defaults.scrollInverted
         layerCycleShortcut = try c.decodeIfPresent(Shortcut.self, forKey: .layerCycleShortcut)
         clickFreezeEnabled = try c.decodeIfPresent(Bool.self, forKey: .clickFreezeEnabled)
             ?? defaults.clickFreezeEnabled
@@ -148,6 +154,7 @@ struct Settings: Codable {
         try c.encode(scrollStep, forKey: .scrollStep)
         try c.encode(scrollMax, forKey: .scrollMax)
         try c.encode(scrollWindow, forKey: .scrollWindow)
+        try c.encode(scrollInverted, forKey: .scrollInverted)
         try c.encode(clickFreezeEnabled, forKey: .clickFreezeEnabled)
         try c.encode(clickFreezeThreshold, forKey: .clickFreezeThreshold)
         try c.encode(clickFreezeHold, forKey: .clickFreezeHold)

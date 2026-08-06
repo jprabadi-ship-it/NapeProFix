@@ -180,6 +180,19 @@ private struct ScrollTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("スクロールの向きを反転する", isOn: Binding(
+                    get: { model.settings.scrollInverted },
+                    set: { model.settings.scrollInverted = $0 }))
+                    .font(.headline)
+                Text("上に転がしたときに下へ動いてしまう場合に入れてください。"
+                     + "このアプリのジェスチャにだけ効きます。"
+                     + "macOS の「ナチュラルなスクロール」やボールスクロールには影響しません。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Divider()
+
             Text("ジェスチャは離散的なので、短い間隔で続けて転がすほど1回あたりの量を伸ばします。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
