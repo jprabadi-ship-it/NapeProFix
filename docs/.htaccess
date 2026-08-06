@@ -1,0 +1,6 @@
+# Redirect plain HTTP to HTTPS. Scoped to this subdomain's directory only.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://napeprofix.gigowat.com/$1 [R=301,L]
+</IfModule>

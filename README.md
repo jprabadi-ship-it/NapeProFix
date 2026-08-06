@@ -56,6 +56,22 @@ xattr -dr com.apple.quarantine /Applications/NapeProFix.app
 swift scripts/make-icon.swift "$PWD"
 ```
 
+## リリース手順
+
+製品ページ（napeprofix.gigowat.com）は**リポジトリから自動生成されません**。ロリポップのレンタルサーバー上のディレクトリを直接配信しているので、`git push` しても反映されません。デプロイは最後の手順です。
+
+```sh
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.2.1" Resources/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 8" Resources/Info.plist
+swift test
+./scripts/make-dmg.sh
+git add -A && git commit && git push
+gh release create v1.2.1 build/NapeProFix-1.2.1.dmg --title "1.2.1" --notes "..."
+./scripts/deploy-site.sh          # docs/ を変更したとき
+```
+
+`deploy-site.sh` は `~/.ssh/config` の `lolipop` ホストを使います。`--delete` は使っていないので、サーバー側にだけ置いたファイルは消えません。
+
 ## Keychron Launcher 側の設定
 
 **アドバンスモード > 「常にジェスチャーモードを有効にする」をオンにしてください。** オフの場合、ジェスチャは「ボールジェスチャ」を割り当てたボタンを押している間しか発火しません。
