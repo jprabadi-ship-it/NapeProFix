@@ -58,12 +58,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(login)
 
         menu.addItem(item("設定を開く…", #selector(openSettings)))
+
+        let pause = item(model.isPaused ? "一時停止を解除" : "一時停止（動作を全部止める）",
+                         #selector(togglePause))
+        pause.state = model.isPaused ? .on : .off
+        menu.addItem(pause)
         menu.addItem(.separator())
         menu.addItem(item("90°回す", #selector(rotate)))
         menu.addItem(item("次のレイヤーへ", #selector(nextLayer)))
         menu.addItem(.separator())
 
-        let status = model.isActive ? "動作中" : "アクセシビリティ権限が必要"
+        let status = model.isPaused ? "一時停止中"
+            : (model.isActive ? "動作中" : "アクセシビリティ権限が必要")
         let header = NSMenuItem(
             title: "NapeProFix — \(status)", action: nil, keyEquivalent: "")
         header.isEnabled = false
@@ -117,6 +123,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func togglePause() {
+        model.setPaused(!model.isPaused)
+        rebuildMenu()
     }
 
     @objc private func toggleLoginItem() {

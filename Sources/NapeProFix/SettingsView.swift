@@ -7,9 +7,9 @@ struct SettingsView: View {
         VStack(spacing: 8) {
             TabView {
                 GestureTab(model: model)
-                    .tabItem { Label("ジェスチャ", systemImage: "circle.circle") }
-                ScrollTab(model: model)
-                    .tabItem { Label("スクロール", systemImage: "arrow.up.arrow.down") }
+                    .tabItem { Label("ジェスチャーモード", systemImage: "circle.circle") }
+                WheelTab(model: model)
+                    .tabItem { Label("スクロールモード", systemImage: "arrow.up.arrow.down") }
                 PointerTab(model: model)
                     .tabItem { Label("ポインタ", systemImage: "cursorarrow") }
                 SetupTab(model: model)
@@ -33,6 +33,7 @@ private struct GestureTab: View {
     @State private var editingLayer = 0
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Picker("編集するレイヤー", selection: $editingLayer) {
@@ -90,7 +91,12 @@ private struct GestureTab: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
+            Divider()
+
+            GestureScrollTuning(model: model)
+
             Spacer()
+        }
         }
         // Follow the layer in use. Switching with the shortcut while this
         // window is open otherwise leaves the picker pointing at the old
@@ -173,75 +179,202 @@ private struct RotationRow: View {
     }
 }
 
-// MARK: - スクロール
+// MARK: - ジェスチャ用スクロールの調整
 
-private struct ScrollTab: View {
+/// Tuning for the scroll actions fired by discrete gestures. Lives inside the
+/// gesture-mode tab because that is the only place these numbers apply;
+/// scroll-mode scrolling is the device's own and passes through untouched.
+private struct GestureScrollTuning: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("スクロール動作の調整（上下ジェスチャ）").font(.headline)
+
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("スクロールの向きを反転する", isOn: Binding(
                     get: { model.settings.scrollInverted },
                     set: { model.settings.scrollInverted = $0 }))
-                    .font(.headline)
                 Text("上に転がしたときに下へ動いてしまう場合に入れてください。"
-                     + "このアプリのジェスチャにだけ効きます。"
-                     + "macOS の「ナチュラルなスクロール」やボールスクロールには影響しません。")
+                     + "ジェスチャのスクロールにだけ効きます。")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Divider()
-
-            Text("ジェスチャは離散的なので、短い間隔で続けて転がすほど1回あたりの量を伸ばします。")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            // The lower bound is 3, not 1: a single line per gesture looks
-            // identical to the app being broken, and nothing on screen points
-            // back at this setting as the cause.
-            stepper("1回あたり", value: Binding(
-                get: { model.settings.scrollBase },
-                set: { model.settings.scrollBase = $0 }), range: 3...40, unit: "行")
-
-            stepper("連打1回ごとの増分", value: Binding(
-                get: { model.settings.scrollStep },
-                set: { model.settings.scrollStep = $0 }), range: 0...20, unit: "行")
-
-            stepper("上限", value: Binding(
-                get: { model.settings.scrollMax },
-                set: { model.settings.scrollMax = $0 }), range: 1...80, unit: "行")
-
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("連打とみなす間隔")
-                        .frame(width: 150, alignment: .leading)
-                    Slider(value: Binding(
-                        get: { model.settings.scrollWindow },
-                        set: { model.settings.scrollWindow = $0 }), in: 0.1...1.0)
-                    .frame(width: 200)
-                    Text(String(format: "%.2f 秒", model.settings.scrollWindow))
-                        .monospacedDigit()
-                }
-                Text("これより短い間隔で続いた場合を「連続」とみなします。")
+                Picker("計り方", selection: Binding(
+                    get: { model.settings.scrollMode },
+                    set: { model.settings.scrollMode = $0 })) {
+                        Text("行単位").tag(Settings.ScrollMode.lines)
+                        Text("速度に応じて").tag(Settings.ScrollMode.velocity)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 300)
+                Text("ボールの移動量そのものはアプリに届かないため、「速度に応じて」は"
+                     + "ジェスチャの発生間隔から転がす速さを推定し、ピクセル単位で"
+                     + "加速カーブをかけます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Button("既定値に戻す") { model.resetScrollSettings() }
+            if model.settings.scrollMode == .lines {
+                // The lower bound is 3, not 1: a single line per gesture looks
+                // identical to the app being broken, and nothing on screen
+                // points back at this setting as the cause.
+                stepper("1回あたり", value: Binding(
+                    get: { model.settings.scrollBase },
+                    set: { model.settings.scrollBase = $0 }), range: 3...40, unit: "行")
 
-            Spacer()
+                stepper("連打1回ごとの増分", value: Binding(
+                    get: { model.settings.scrollStep },
+                    set: { model.settings.scrollStep = $0 }), range: 0...20, unit: "行")
+
+                stepper("上限", value: Binding(
+                    get: { model.settings.scrollMax },
+                    set: { model.settings.scrollMax = $0 }), range: 1...80, unit: "行")
+            } else {
+                stepper("最小量（ゆっくり転がしたとき）", value: Binding(
+                    get: { model.settings.velocityFloor },
+                    set: { model.settings.velocityFloor = $0 }),
+                    range: 10...200, unit: "px", labelWidth: 220)
+
+                HStack {
+                    Text("加速の強さ")
+                        .frame(width: 220, alignment: .leading)
+                    Slider(value: Binding(
+                        get: { model.settings.velocityGain },
+                        set: { model.settings.velocityGain = $0 }), in: 0.5...10)
+                    .frame(width: 180)
+                    Text(String(format: "%.1f", model.settings.velocityGain))
+                        .monospacedDigit()
+                }
+
+                stepper("上限", value: Binding(
+                    get: { model.settings.velocityMax },
+                    set: { model.settings.velocityMax = $0 }),
+                    range: 100...2000, unit: "px", labelWidth: 220)
+            }
+
+            Button("既定値に戻す") { model.resetScrollSettings() }
         }
     }
 
     private func stepper(_ title: String, value: Binding<Int>,
-                         range: ClosedRange<Int>, unit: String) -> some View {
+                         range: ClosedRange<Int>, unit: String,
+                         labelWidth: CGFloat = 150) -> some View {
         HStack {
-            Text(title).frame(width: 150, alignment: .leading)
-            Stepper(value: value, in: range) {
+            Text(title).frame(width: labelWidth, alignment: .leading)
+            Stepper(value: value, in: range, step: unit == "px" ? 10 : 1) {
                 Text("\(value.wrappedValue) \(unit)").monospacedDigit()
             }
             .frame(width: 140)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - スクロールモード
+
+/// The same direction→action structure as the gesture tab, applied to the
+/// device's scroll mode. Unassigned directions keep the native smooth scroll.
+private struct WheelTab: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("スクロールモード（ボールスクロール中）の転がし方向に動作を割り当てます。"
+                 + "「そのままスクロール」は回転量に比例したデバイス本来のスクロールを通します。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            ForEach(Direction.menuOrder, id: \.self) { direction in
+                WheelDirectionRow(model: model, direction: direction)
+            }
+
+            Divider()
+
+            HStack {
+                Text("動作の発火に必要な量")
+                    .frame(width: 170, alignment: .leading)
+                Slider(value: Binding(
+                    get: { Double(model.settings.wheelSpacesThreshold) },
+                    set: { model.settings.wheelSpacesThreshold = Int($0) }),
+                    in: 20...300)
+                .frame(width: 180)
+                Text("\(model.settings.wheelSpacesThreshold) px").monospacedDigit()
+            }
+            HStack {
+                Text("次の発火までの間隔")
+                    .frame(width: 170, alignment: .leading)
+                Slider(value: Binding(
+                    get: { model.settings.wheelSpacesCooldown },
+                    set: { model.settings.wheelSpacesCooldown = $0 }),
+                    in: 0.2...2.0)
+                .frame(width: 180)
+                Text(String(format: "%.1f 秒", model.settings.wheelSpacesCooldown))
+                    .monospacedDigit()
+            }
+            Text("割り当てた方向は、この量まで転がしたときに1回発火します。"
+                 + "その方向の通常のスクロールは無効になります。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("既定値に戻す（すべて通す）") { model.resetWheelSettings() }
+
+            Divider()
+
+            Text("デバイス側でボールスクロールが使える状態にしてください。"
+                 + "ボタンの「ボールスクロール」を押しながら転がすか、"
+                 + "アドバンスモードの「常にスクロールモードを有効にする」をオンにします。"
+                 + "他のマウスのスクロールにも同じ割り当てが効きます"
+                 + "（入力元のデバイスを区別できないため）。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+    }
+}
+
+private struct WheelDirectionRow: View {
+    @ObservedObject var model: AppModel
+    let direction: Direction
+
+    /// Scroll actions are excluded: converting real scrolling into synthetic
+    /// scrolling would be a no-op at best and a feedback hazard at worst.
+    private static let choices: [GestureAction] = GestureAction.allCases.filter {
+        $0 != .scrollUp && $0 != .scrollDown
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(direction.label)
+                .frame(width: 24, alignment: .leading)
+                .font(.headline)
+
+            Picker("", selection: Binding(
+                get: { model.settings.wheelActions[direction] },
+                set: { model.assignWheel($0, to: direction) })) {
+                    Text("そのままスクロール").tag(GestureAction?.none)
+                    ForEach(Self.choices, id: \.self) { action in
+                        Text(action.label).tag(GestureAction?.some(action))
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 220)
+
+            if model.settings.wheelActions[direction] == .shortcut {
+                Text(model.settings.wheelShortcuts[direction]?.display ?? "未記録")
+                    .foregroundStyle(model.settings.wheelShortcuts[direction] == nil
+                                     ? .secondary : .primary)
+                    .frame(minWidth: 70, alignment: .leading)
+            }
+
+            Button("ショートカットを記録…") { model.recordWheelShortcut(for: direction) }
+            if model.settings.wheelShortcuts[direction] != nil {
+                Button("削除") { model.clearWheelShortcut(for: direction) }
+            }
             Spacer()
         }
     }

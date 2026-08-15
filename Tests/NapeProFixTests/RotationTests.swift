@@ -90,6 +90,63 @@ import Testing
     #expect(decoded.layer(0).shortcuts[.right]?.display == "⌘K")
 }
 
+@Test func scrollModeSurvivesEncodingAndDefaultsToLines() throws {
+    var settings = Settings()
+    #expect(settings.scrollMode == .lines)
+    settings.scrollMode = .velocity
+    settings.velocityFloor = 60
+    settings.velocityGain = 5.0
+
+    let decoded = try JSONDecoder().decode(
+        Settings.self, from: try JSONEncoder().encode(settings))
+    #expect(decoded.scrollMode == .velocity)
+    #expect(decoded.velocityFloor == 60)
+    #expect(decoded.velocityGain == 5.0)
+
+    // Settings saved before the mode existed must stay in line mode.
+    let old = try JSONDecoder().decode(
+        Settings.self, from: Data(#"{"rotation":1,"scrollBase":8}"#.utf8))
+    #expect(old.scrollMode == .lines)
+    #expect(old.velocityFloor == 40)
+}
+
+@Test func wheelRoutingSurvivesEncoding() throws {
+    var settings = Settings()
+    #expect(settings.wheelActions.isEmpty)   // passthrough is the default
+    settings.wheelActions[.left] = .spaceLeft
+    settings.wheelActions[.up] = .shortcut
+    settings.wheelShortcuts[.up] = Shortcut(keyCode: 40, modifiers: 0, display: "K")
+    settings.wheelSpacesThreshold = 100
+
+    let decoded = try JSONDecoder().decode(
+        Settings.self, from: try JSONEncoder().encode(settings))
+    #expect(decoded.wheelActions[.left] == .spaceLeft)
+    #expect(decoded.wheelActions[.up] == .shortcut)
+    #expect(decoded.wheelShortcuts[.up]?.display == "K")
+    #expect(decoded.wheelActions[.down] == nil)
+    #expect(decoded.wheelSpacesThreshold == 100)
+
+    // Settings saved before the feature existed must not hijack scrolling.
+    let old = try JSONDecoder().decode(
+        Settings.self, from: Data(#"{"rotation":1,"scrollBase":8}"#.utf8))
+    #expect(old.wheelActions.isEmpty)
+}
+
+/// 1.4.0 stored a single toggle; it must migrate into per-direction routing —
+/// once. A deliberately cleared routing must not resurrect it.
+@Test func migratesWheelSpacesToggle() throws {
+    let old = try JSONDecoder().decode(Settings.self, from: Data(
+        #"{"rotation":1,"wheelSpacesEnabled":true}"#.utf8))
+    #expect(old.wheelActions[.left] == .spaceLeft)
+    #expect(old.wheelActions[.right] == .spaceRight)
+
+    var cleared = old
+    cleared.wheelActions = [:]
+    let decoded = try JSONDecoder().decode(
+        Settings.self, from: try JSONEncoder().encode(cleared))
+    #expect(decoded.wheelActions.isEmpty)
+}
+
 @Test func scrollInversionSurvivesEncoding() throws {
     var settings = Settings()
     #expect(settings.scrollInverted == false)
@@ -142,4 +199,48 @@ import Testing
 @Test func layerCycleStaysPutWhenOnlyOneLayerIsSet() {
     let settings = Settings()
     #expect(settings.nextConfiguredLayer(after: 0) == 0)
+}
+
+// MARK: - Event snapshot
+
+/// The taps read a snapshot, never Settings. If the snapshot stopped
+/// reflecting a setting, the feature would silently stop working.
+@Test func snapshotCarriesTheResolvedLayer() {
+    var settings = Settings()
+    settings.activeLayer = 2
+    settings.rotation = 3
+    settings.update(layer: 2) {
+        $0.actions[.up] = .missionControl
+        $0.actions[.down] = .shortcut
+        $0.shortcuts[.down] = Shortcut(keyCode: 40, modifiers: 1_048_576, display: "⌘K")
+    }
+
+    let snap = EventSnapshot(settings)
+    #expect(snap.rotation == 3)
+    #expect(snap.gestureActions[.up] == .missionControl)
+    #expect(snap.gestureKeys[.down]?.keyCode == 40)
+    #expect(snap.gestureKeys[.up] == nil)
+}
+
+/// The scroll tap is switched off entirely when nothing is routed, so an
+/// unconfigured install keeps every scroll event out of this process.
+@Test func snapshotReportsWheelRoutingInactiveByDefault() {
+    #expect(EventSnapshot(Settings()).wheelRoutingActive == false)
+
+    var settings = Settings()
+    settings.wheelActions[.left] = .spaceLeft
+    let snap = EventSnapshot(settings)
+    #expect(snap.wheelRoutingActive == true)
+    #expect(snap.wheelActions[.left] == .spaceLeft)
+    #expect(snap.wheelActions[.up] == nil)
+}
+
+@Test func dir4SubscriptsEveryDirection() {
+    var values = Dir4<Int>(repeating: 0)
+    for (index, direction) in Direction.allCases.enumerated() {
+        values[direction] = index
+    }
+    for (index, direction) in Direction.allCases.enumerated() {
+        #expect(values[direction] == index)
+    }
 }

@@ -6,102 +6,120 @@ import Foundation
 /// The keys are consumed rather than passed through: they are meant to be
 /// opaque carriers for "the ball moved this way", so nothing downstream should
 /// ever see them.
+///
+/// Everything decided here is decided on the tap thread from a plain-value
+/// snapshot. It used to hop to the main actor for each event, which put every
+/// keystroke in the system behind whatever the UI happened to be doing.
 final class GestureTap: @unchecked Sendable {
-    /// Called with the direction the firmware reported, not the physical one.
-    var onGesture: ((Direction) -> Void)?
-    /// Any other key press. Return true to swallow it, as the layer switch
-    /// shortcut needs to, so it does not also reach the frontmost app.
-    var onKey: ((CGKeyCode, CGEventFlags) -> Bool)?
-    var onTapDisabled: (() -> Void)?
+    private let snapshot: SnapshotBox
+    private let runner: ActionRunner
+    /// Called on the tap thread when the layer-cycle key fires.
+    var onLayerCycle: (() -> Void)?
 
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    /// Keys whose press was handled, so their release can be swallowed too.
+    private var tap: CFMachPort?
     private var swallowedKeys: Set<CGKeyCode> = []
+    private var running = false
 
-    var isRunning: Bool { eventTap != nil }
+    init(snapshot: SnapshotBox) {
+        self.snapshot = snapshot
+        runner = ActionRunner(snapshot: snapshot)
+    }
 
+    var isRunning: Bool { running }
+
+    /// Creating the tap is the only way to find out whether accessibility has
+    /// been granted, so this reports back synchronously.
     @discardableResult
     func start() -> Bool {
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: true)
-            return true
+        if running { return true }
+        let semaphore = DispatchSemaphore(value: 0)
+        let created = Flag()
+
+        TapThread.shared.perform { [weak self] in
+            guard let self else { semaphore.signal(); return }
+            if let tap = TapThread.makeTap(
+                types: [.keyDown, .keyUp], options: .defaultTap,
+                context: Unmanaged.passUnretained(self).toOpaque(),
+                callback: gestureTapCallback) {
+                self.tap = tap
+                CGEvent.tapEnable(tap: tap, enable: true)
+                created.value = true
+            }
+            semaphore.signal()
         }
-
-        let types: [CGEventType] = [.keyDown, .keyUp]
-        let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-        let context = Unmanaged.passUnretained(self).toOpaque()
-
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: gestureTapCallback,
-            userInfo: context
-        ) else {
-            return false
-        }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        eventTap = tap
-        runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        semaphore.wait()
+        running = created.value
+        return running
     }
 
     func stop() {
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            if let runLoopSource {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-            }
-            CFMachPortInvalidate(eventTap)
+        TapThread.shared.perform { [weak self] in
+            guard let self else { return }
+            TapThread.destroy(self.tap)
+            self.tap = nil
         }
-        eventTap = nil
-        runLoopSource = nil
+        running = false
     }
 
-    /// The system disables a tap that takes too long. Re-enable rather than
-    /// silently dying.
     fileprivate func reenable() {
-        guard let eventTap else { return }
-        CGEvent.tapEnable(tap: eventTap, enable: true)
-        onTapDisabled?()
+        guard let tap else { return }
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
 
-    fileprivate func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-
+    /// Returns true when the event should be swallowed.
+    fileprivate func handle(type: CGEventType, keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
         if let gestureKey = GestureKey.from(keyCode: keyCode) {
             if type == .keyDown {
-                onGesture?(gestureKey.firmwareDirection)
+                let state = snapshot.current
+                let resolved = gestureKey.firmwareDirection.rotated(by: state.rotation)
+                runner.perform(state.gestureActions[resolved],
+                               key: state.gestureKeys[resolved])
             }
-            return nil  // swallow both down and up
+            return true   // swallow both down and up
         }
 
-        // Act on the press only. Firing on key up as well ran the handler
-        // twice per press, which cancelled itself out whenever the action was
-        // a toggle — the layer switch went forward and straight back.
-        // The release still has to be swallowed so the key never reaches the
-        // app underneath.
+        // Act on the press only. Firing on key up as well ran the handler twice
+        // per press, which cancelled itself out for a toggle — the layer switch
+        // went forward and straight back. The release still has to be swallowed
+        // so the key never reaches the app underneath.
         switch type {
         case .keyDown:
-            if onKey?(keyCode, event.flags) == true {
-                swallowedKeys.insert(keyCode)
-                return nil
+            guard let cycle = snapshot.current.layerCycle, cycle.keyCode == keyCode else {
+                return false
             }
+            // Compare only the modifiers that get recorded; the event carries
+            // extra bits, such as the numeric-keypad flag, that would never match.
+            let mask: CGEventFlags = [
+                .maskControl, .maskAlternate, .maskShift, .maskCommand, .maskSecondaryFn,
+            ]
+            guard flags.intersection(mask) == cycle.flags.intersection(mask) else { return false }
+            swallowedKeys.insert(keyCode)
+            onLayerCycle?()
+            return true
+
         case .keyUp:
-            if swallowedKeys.remove(keyCode) != nil {
-                return nil
-            }
+            return swallowedKeys.remove(keyCode) != nil
+
         default:
-            break
+            return false
         }
-        return Unmanaged.passUnretained(event)
     }
 }
+
+/// Carries the result out of the tap thread; a captured `var` cannot be
+/// mutated from a `@Sendable` closure.
+private final class Flag: @unchecked Sendable {
+    var value = false
+}
+
+// Every callback below wraps its work in an autorelease pool.
+//
+// `CFRunLoopRun()` on a secondary thread does no autorelease pool management —
+// unlike the main run loop, nothing drains the thread's top-level pool, and it
+// is never popped because the call never returns. Anything autoreleased inside
+// a callback therefore accumulates for the lifetime of the process. Measured at
+// roughly 12KB per click before this was added: memory grew without bound and
+// the pointer got progressively worse until the app was restarted.
 
 private func gestureTapCallback(
     proxy: CGEventTapProxy,
@@ -109,12 +127,17 @@ private func gestureTapCallback(
     event: CGEvent,
     userInfo: UnsafeMutableRawPointer?
 ) -> Unmanaged<CGEvent>? {
-    guard let userInfo else { return Unmanaged.passUnretained(event) }
-    let tap = Unmanaged<GestureTap>.fromOpaque(userInfo).takeUnretainedValue()
+    autoreleasepool {
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let tap = Unmanaged<GestureTap>.fromOpaque(userInfo).takeUnretainedValue()
 
-    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-        tap.reenable()
-        return Unmanaged.passUnretained(event)
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            tap.reenable()
+            return Unmanaged.passUnretained(event)
+        }
+
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        return tap.handle(type: type, keyCode: keyCode, flags: event.flags)
+            ? nil : Unmanaged.passUnretained(event)
     }
-    return tap.handle(type: type, event: event)
 }

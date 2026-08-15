@@ -6,164 +6,195 @@ import CoreGraphics
 ///
 /// On a trackball the ball turns slightly as the finger presses and releases,
 /// which nudges the pointer off the target — the click registers a few pixels
-/// away from what was being pointed at. Freezing the cursor for the duration of
-/// the press, and putting it back where the press started, removes that.
+/// away from what was being pointed at. Holding the pointer still for the
+/// duration of the press removes that.
 ///
-/// Dragging still has to work, so the freeze lifts as soon as the movement
-/// during the press passes a threshold: past that, the motion is deliberate.
-@MainActor
-final class ClickFreeze {
-    var settings: Settings
+/// Three things about the implementation matter, all learned by getting them
+/// wrong first:
+///
+/// 1. **The pointer is held by swallowing movement events**, not by detaching
+///    the cursor with `CGAssociateMouseAndMouseCursorPosition(0)`. While the
+///    cursor is detached the system keeps moving its own internal position, and
+///    re-associating snaps the cursor to wherever that drifted to — the pointer
+///    visibly warps.
+///
+/// 2. **Movement is only routed through this process while a button is down.**
+///    The motion tap stays disabled the rest of the time, so ordinary pointer
+///    movement never enters the app at all.
+///
+/// 3. **Everything runs on `TapThread`**, never the main thread.
+final class ClickFreeze: @unchecked Sendable {
+    private let snapshot: SnapshotBox
 
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    /// Cheap and always on: just watches for button presses.
+    private var buttonTap: CFMachPort?
+    /// Only enabled while frozen, because it is in the path of every movement.
+    private var motionTap: CFMachPort?
 
-    private var frozenAt: CGPoint?
+    // Touched only on the tap thread.
+    private var isFrozen = false
     private var travel: CGFloat = 0
     private var releaseTimer: Timer?
-    /// Last resort. If anything goes wrong while the cursor is detached from
-    /// the mouse, the pointer would be stuck for good.
     private var safetyTimer: Timer?
 
-    init(settings: Settings) {
-        self.settings = settings
+    init(snapshot: SnapshotBox) {
+        self.snapshot = snapshot
     }
 
-    @discardableResult
-    func start() -> Bool {
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: true)
-            return true
+    func start() {
+        TapThread.shared.perform { [weak self] in
+            guard let self, self.buttonTap == nil else { return }
+            self.buttonTap = TapThread.makeTap(
+                types: [.leftMouseDown, .leftMouseUp,
+                        .rightMouseDown, .rightMouseUp,
+                        .otherMouseDown, .otherMouseUp],
+                options: .listenOnly, context: Unmanaged.passUnretained(self).toOpaque(), callback: buttonTapCallback)
+            if let tap = self.buttonTap { CGEvent.tapEnable(tap: tap, enable: true) }
+
+            self.motionTap = TapThread.makeTap(
+                types: [.mouseMoved, .leftMouseDragged,
+                        .rightMouseDragged, .otherMouseDragged],
+                options: .defaultTap, context: Unmanaged.passUnretained(self).toOpaque(), callback: motionTapCallback)
+            // Off until a button goes down.
+            if let tap = self.motionTap { CGEvent.tapEnable(tap: tap, enable: false) }
         }
-
-        let types: [CGEventType] = [
-            .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp,
-            .otherMouseDown, .otherMouseUp,
-            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
-        ]
-        let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-        let context = Unmanaged.passUnretained(self).toOpaque()
-
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,   // never swallow mouse events
-            eventsOfInterest: mask,
-            callback: clickFreezeCallback,
-            userInfo: context
-        ) else {
-            return false
-        }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        eventTap = tap
-        runLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        return true
     }
 
     func stop() {
-        thaw(restore: false)
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            if let runLoopSource {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-            }
-            CFMachPortInvalidate(eventTap)
+        TapThread.shared.perform { [weak self] in
+            guard let self else { return }
+            self.thaw()
+            TapThread.destroy(self.buttonTap)
+            TapThread.destroy(self.motionTap)
+            self.buttonTap = nil
+            self.motionTap = nil
         }
-        eventTap = nil
-        runLoopSource = nil
     }
 
-    fileprivate func reenable() {
-        guard let eventTap else { return }
-        CGEvent.tapEnable(tap: eventTap, enable: true)
+    fileprivate func reenable(_ tap: CFMachPort?) {
+        guard let tap else { return }
+        // The motion tap must not come back enabled if nothing is frozen —
+        // that would put every pointer movement back in our path for good.
+        if tap === motionTap && !isFrozen { return }
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
+
+    fileprivate var buttons: CFMachPort? { buttonTap }
+    fileprivate var motion: CFMachPort? { motionTap }
 
     // MARK: - Handling
 
-    /// Takes the movement as plain numbers rather than the event itself, so
-    /// nothing crosses the actor boundary that the compiler cannot reason about.
-    fileprivate func handle(type: CGEventType, dx: CGFloat, dy: CGFloat) {
-        guard settings.clickFreezeEnabled else { return }
-
+    fileprivate func handleButton(type: CGEventType) {
+        let state = snapshot.current
+        guard state.freezeEnabled else {
+            if isFrozen { thaw() }
+            return
+        }
         switch type {
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             freeze()
-
-        case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
-            guard frozenAt != nil else { return }
-            travel += (dx * dx + dy * dy).squareRoot()
-            // Deliberate movement: hand the pointer back and stay out of the way.
-            if travel > CGFloat(settings.clickFreezeThreshold) {
-                thaw(restore: false)
-            }
-
         case .leftMouseUp, .rightMouseUp, .otherMouseUp:
-            guard frozenAt != nil else { return }
+            guard isFrozen else { return }
             // Hold a moment longer: the ball usually turns as the finger lifts,
             // which is exactly the drift being corrected.
             releaseTimer?.invalidate()
-            releaseTimer = Timer.scheduledTimer(
-                withTimeInterval: settings.clickFreezeHold, repeats: false) { _ in
-                    MainActor.assumeIsolated { self.thaw(restore: true) }
-                }
-
+            releaseTimer = scheduled(after: state.freezeHold) { [weak self] in
+                self?.thaw()
+            }
         default:
             break
         }
     }
 
+    /// Returns true when the movement should be swallowed.
+    fileprivate func shouldSwallowMotion(dx: CGFloat, dy: CGFloat) -> Bool {
+        guard isFrozen else { return false }
+        travel += (dx * dx + dy * dy).squareRoot()
+        // Deliberate movement: hand the pointer back and stay out of the way.
+        if travel > snapshot.current.freezeThreshold {
+            thaw()
+            return false
+        }
+        return true
+    }
+
     private func freeze() {
-        guard frozenAt == nil else { return }
+        guard !isFrozen else { return }
         releaseTimer?.invalidate()
         travel = 0
-        frozenAt = currentLocation()
-        CGAssociateMouseAndMouseCursorPosition(0)
+        isFrozen = true
+        if let motionTap { CGEvent.tapEnable(tap: motionTap, enable: true) }
 
         safetyTimer?.invalidate()
-        safetyTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { _ in
-            MainActor.assumeIsolated { self.thaw(restore: false) }
-        }
+        safetyTimer = scheduled(after: 3) { [weak self] in self?.thaw() }
     }
 
-    private func thaw(restore: Bool) {
+    private func thaw() {
         releaseTimer?.invalidate(); releaseTimer = nil
         safetyTimer?.invalidate(); safetyTimer = nil
-        guard let point = frozenAt else { return }
-        frozenAt = nil
+        isFrozen = false
         travel = 0
-        if restore { CGWarpMouseCursorPosition(point) }
-        CGAssociateMouseAndMouseCursorPosition(1)
+        if let motionTap { CGEvent.tapEnable(tap: motionTap, enable: false) }
     }
 
-    /// Global (top-left origin) location, matching the space CGWarp uses.
-    private func currentLocation() -> CGPoint {
-        let mouse = NSEvent.mouseLocation
-        guard let primary = NSScreen.screens.first else { return mouse }
-        return CGPoint(x: mouse.x, y: primary.frame.maxY - mouse.y)
+    /// Timers must run in `.common` modes. Registered in the default mode only,
+    /// they stop firing while the run loop is tracking, and the release would
+    /// never run — leaving the pointer pinned.
+    private func scheduled(after seconds: TimeInterval,
+                           _ body: @escaping () -> Void) -> Timer {
+        let timer = Timer(timeInterval: seconds, repeats: false) { _ in
+            autoreleasepool { body() }
+        }
+        RunLoop.current.add(timer, forMode: .common)
+        return timer
     }
 }
 
-private func clickFreezeCallback(
+// Every callback below wraps its work in an autorelease pool.
+//
+// `CFRunLoopRun()` on a secondary thread does no autorelease pool management —
+// unlike the main run loop, nothing drains the thread's top-level pool, and it
+// is never popped because the call never returns. Anything autoreleased inside
+// a callback therefore accumulates for the lifetime of the process. Measured at
+// roughly 12KB per click before this was added: memory grew without bound and
+// the pointer got progressively worse until the app was restarted.
+
+private func buttonTapCallback(
     proxy: CGEventTapProxy,
     type: CGEventType,
     event: CGEvent,
     userInfo: UnsafeMutableRawPointer?
 ) -> Unmanaged<CGEvent>? {
-    guard let userInfo else { return Unmanaged.passUnretained(event) }
-    let freeze = Unmanaged<ClickFreeze>.fromOpaque(userInfo).takeUnretainedValue()
+    autoreleasepool {
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let freeze = Unmanaged<ClickFreeze>.fromOpaque(userInfo).takeUnretainedValue()
 
-    let dx = CGFloat(event.getDoubleValueField(.mouseEventDeltaX))
-    let dy = CGFloat(event.getDoubleValueField(.mouseEventDeltaY))
-
-    MainActor.assumeIsolated {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            freeze.reenable()
-        } else {
-            freeze.handle(type: type, dx: dx, dy: dy)
+            freeze.reenable(freeze.buttons)
+            return Unmanaged.passUnretained(event)
         }
+        freeze.handleButton(type: type)
+        return Unmanaged.passUnretained(event)
     }
-    return Unmanaged.passUnretained(event)
+}
+
+private func motionTapCallback(
+    proxy: CGEventTapProxy,
+    type: CGEventType,
+    event: CGEvent,
+    userInfo: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+    autoreleasepool {
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let freeze = Unmanaged<ClickFreeze>.fromOpaque(userInfo).takeUnretainedValue()
+
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            freeze.reenable(freeze.motion)
+            return Unmanaged.passUnretained(event)
+        }
+
+        let dx = CGFloat(event.getDoubleValueField(.mouseEventDeltaX))
+        let dy = CGFloat(event.getDoubleValueField(.mouseEventDeltaY))
+        return freeze.shouldSwallowMotion(dx: dx, dy: dy) ? nil : Unmanaged.passUnretained(event)
+    }
 }

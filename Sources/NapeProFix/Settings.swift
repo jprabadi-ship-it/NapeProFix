@@ -81,14 +81,52 @@ struct Settings: Codable {
     /// a Nape Pro button so switching feels like the device's own layers.
     var layerCycleShortcut: Shortcut?
 
+    /// How gesture scrolling is measured.
+    ///
+    /// The ball's actual travel never reaches this app — gesture mode sends
+    /// only direction keys. What does scale with rolling speed is how often
+    /// those keys arrive, so `velocity` estimates speed from the interval
+    /// between events and scrolls in pixels along an accelerating curve.
+    enum ScrollMode: String, Codable {
+        case lines      // fixed lines per gesture, streak-based boost
+        case velocity   // pixels per gesture, scaled by event rate
+    }
+
+    var scrollMode: ScrollMode = .lines
+
     var scrollBase = 8
     var scrollStep = 5
     var scrollMax = 32
     var scrollWindow: TimeInterval = 0.4
+
+    /// Velocity mode: pixels for a single, unhurried gesture.
+    var velocityFloor = 40
+    /// Velocity mode: acceleration strength. Scroll per event grows with the
+    /// square of the event rate, scaled by this.
+    var velocityGain: Double = 3.0
+    /// Velocity mode: cap in pixels per event, so a fast spin stays bounded.
+    var velocityMax = 600
     /// Flips which way the content moves for a given roll direction. Separate
     /// from macOS's own natural-scrolling setting, so this can be corrected
     /// for the trackball without changing the rest of the system.
     var scrollInverted = false
+
+    /// Scroll-mode routing: what each roll direction does while the device is
+    /// in ball-scroll mode (real, proportional scroll events).
+    ///
+    /// A direction with no entry passes through untouched — the smooth native
+    /// scrolling is the whole point of scroll mode, so passthrough is the
+    /// default, not an action.
+    var wheelActions: [Direction: GestureAction] = [:]
+    var wheelShortcuts: [Direction: Shortcut] = [:]
+
+    /// Kept only to migrate settings from 1.4.0, which had a single
+    /// "horizontal roll switches spaces" toggle instead of per-direction routing.
+    var wheelSpacesEnabled = false
+    /// Accumulated pixels in one direction that trigger the assigned action.
+    var wheelSpacesThreshold = 60
+    /// Seconds before the same direction may fire again.
+    var wheelSpacesCooldown: TimeInterval = 0.6
 
     /// Hold the cursor still while a mouse button is down, so a click lands
     /// where it was aimed rather than where the ball drifted to.
@@ -101,6 +139,9 @@ struct Settings: Codable {
     private enum CodingKeys: String, CodingKey {
         case rotation, activeLayer, layers, layerCycleShortcut
         case scrollBase, scrollStep, scrollMax, scrollWindow, scrollInverted
+        case scrollMode, velocityFloor, velocityGain, velocityMax
+        case wheelSpacesEnabled, wheelSpacesThreshold, wheelSpacesCooldown
+        case wheelActions, wheelShortcuts
         case clickFreezeEnabled, clickFreezeThreshold, clickFreezeHold
         // Pre-layer format, still read so existing settings survive.
         case actions, shortcuts
@@ -120,6 +161,32 @@ struct Settings: Codable {
             ?? defaults.scrollWindow
         scrollInverted = try c.decodeIfPresent(Bool.self, forKey: .scrollInverted)
             ?? defaults.scrollInverted
+        scrollMode = try c.decodeIfPresent(ScrollMode.self, forKey: .scrollMode)
+            ?? defaults.scrollMode
+        velocityFloor = try c.decodeIfPresent(Int.self, forKey: .velocityFloor)
+            ?? defaults.velocityFloor
+        velocityGain = try c.decodeIfPresent(Double.self, forKey: .velocityGain)
+            ?? defaults.velocityGain
+        velocityMax = try c.decodeIfPresent(Int.self, forKey: .velocityMax)
+            ?? defaults.velocityMax
+        wheelSpacesEnabled = try c.decodeIfPresent(Bool.self, forKey: .wheelSpacesEnabled)
+            ?? defaults.wheelSpacesEnabled
+        wheelSpacesThreshold = try c.decodeIfPresent(Int.self, forKey: .wheelSpacesThreshold)
+            ?? defaults.wheelSpacesThreshold
+        wheelSpacesCooldown = try c.decodeIfPresent(TimeInterval.self, forKey: .wheelSpacesCooldown)
+            ?? defaults.wheelSpacesCooldown
+
+        if let rawWheel = try c.decodeIfPresent([Int: GestureAction].self, forKey: .wheelActions) {
+            for (key, value) in rawWheel {
+                if let dir = Direction(rawValue: key) { wheelActions[dir] = value }
+            }
+        } else if wheelSpacesEnabled {
+            // 1.4.0 had a single toggle: horizontal roll switched spaces.
+            wheelActions = [.left: .spaceLeft, .right: .spaceRight]
+        }
+        for (key, value) in try c.decodeIfPresent([Int: Shortcut].self, forKey: .wheelShortcuts) ?? [:] {
+            if let dir = Direction(rawValue: key) { wheelShortcuts[dir] = value }
+        }
         layerCycleShortcut = try c.decodeIfPresent(Shortcut.self, forKey: .layerCycleShortcut)
         clickFreezeEnabled = try c.decodeIfPresent(Bool.self, forKey: .clickFreezeEnabled)
             ?? defaults.clickFreezeEnabled
@@ -155,6 +222,19 @@ struct Settings: Codable {
         try c.encode(scrollMax, forKey: .scrollMax)
         try c.encode(scrollWindow, forKey: .scrollWindow)
         try c.encode(scrollInverted, forKey: .scrollInverted)
+        try c.encode(scrollMode, forKey: .scrollMode)
+        try c.encode(velocityFloor, forKey: .velocityFloor)
+        try c.encode(velocityGain, forKey: .velocityGain)
+        try c.encode(velocityMax, forKey: .velocityMax)
+        try c.encode(wheelSpacesEnabled, forKey: .wheelSpacesEnabled)
+        try c.encode(wheelSpacesThreshold, forKey: .wheelSpacesThreshold)
+        try c.encode(wheelSpacesCooldown, forKey: .wheelSpacesCooldown)
+        var rawWheel: [Int: GestureAction] = [:]
+        for (dir, value) in wheelActions { rawWheel[dir.rawValue] = value }
+        try c.encode(rawWheel, forKey: .wheelActions)
+        var rawWheelShortcuts: [Int: Shortcut] = [:]
+        for (dir, value) in wheelShortcuts { rawWheelShortcuts[dir.rawValue] = value }
+        try c.encode(rawWheelShortcuts, forKey: .wheelShortcuts)
         try c.encode(clickFreezeEnabled, forKey: .clickFreezeEnabled)
         try c.encode(clickFreezeThreshold, forKey: .clickFreezeThreshold)
         try c.encode(clickFreezeHold, forKey: .clickFreezeHold)

@@ -6,66 +6,71 @@ import Combine
 @MainActor
 final class AppModel: ObservableObject {
     @Published var settings: Settings {
-        didSet {
-            SettingsStore.save(settings)
-            runner.update(settings: settings)
-            clickFreeze.settings = settings
-        }
+        didSet { publish() }
+    }
+
+    /// The taps read this, never `settings`. Rebuilt on change, on the main
+    /// thread, so the event path only ever copies plain values.
+    private let snapshot = SnapshotBox(EventSnapshot())
+
+    private func publish() {
+        SettingsStore.save(settings)
+        snapshot.current = EventSnapshot(settings)
+        wheelRouter.refresh()
     }
 
     /// Whether the event tap is running, i.e. whether accessibility has been
     /// granted. Surfaced so the settings window can say so plainly.
     @Published private(set) var isActive = false
 
-    private let tap = GestureTap()
-    private lazy var runner = ActionRunner(settings: settings)
-    private lazy var clickFreeze = ClickFreeze(settings: settings)
+    /// Master off switch. Detaches every tap, so the app is provably out of the
+    /// input path — the fastest way to tell whether a pointer problem is this
+    /// app or something else on the machine. Deliberately not persisted: a
+    /// paused app that stayed paused across a restart would look broken.
+    @Published private(set) var isPaused = false
+
+    func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if paused {
+            tap.stop()
+            clickFreeze.stop()
+            wheelRouter.stop()
+        } else {
+            _ = tap.start()
+            clickFreeze.start()
+            wheelRouter.start()
+        }
+    }
+
+    private lazy var tap = GestureTap(snapshot: snapshot)
+    private lazy var clickFreeze = ClickFreeze(snapshot: snapshot)
+    private lazy var wheelRouter = WheelRouter(snapshot: snapshot)
     private var permissionTimer: Timer?
 
     init() {
         settings = SettingsStore.load()
+        snapshot.current = EventSnapshot(settings)
 
-        tap.onGesture = { [weak self] firmwareDirection in
-            MainActor.assumeIsolated { self?.handle(firmwareDirection) }
-        }
-        tap.onKey = { [weak self] keyCode, flags in
-            MainActor.assumeIsolated {
-                self?.handleLayerSwitch(keyCode: keyCode, flags: flags) ?? false
+        // Fired on the tap thread. Only the state change comes back to the
+        // main actor; nothing in the event path waits for it.
+        tap.onLayerCycle = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.settings.activeLayer =
+                    self.settings.nextConfiguredLayer(after: self.settings.activeLayer)
             }
         }
-    }
-
-    // MARK: - Gestures
-
-    private func handle(_ firmwareDirection: Direction) {
-        let resolved = firmwareDirection.rotated(by: settings.rotation)
-        let layer = settings.current
-        runner.perform(layer.action(for: resolved), shortcut: layer.shortcuts[resolved])
-    }
-
-    /// Returns true when the key was the layer switch and should be swallowed.
-    private func handleLayerSwitch(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
-        guard let shortcut = settings.layerCycleShortcut,
-              CGKeyCode(shortcut.keyCode) == keyCode
-        else { return false }
-
-        // Compare only the modifiers we record; the event carries extra bits
-        // such as the numeric-keypad flag that would never match otherwise.
-        let mask: CGEventFlags = [
-            .maskControl, .maskAlternate, .maskShift, .maskCommand, .maskSecondaryFn,
-        ]
-        guard flags.intersection(mask) == shortcut.flags.intersection(mask) else { return false }
-
-        settings.activeLayer = settings.nextConfiguredLayer(after: settings.activeLayer)
-        return true
     }
 
     // MARK: - Permission
 
     func start() {
+        TapThread.shared.start()
         if tap.start() {
             isActive = true
             clickFreeze.start()
+            wheelRouter.start()
             permissionTimer?.invalidate()
             permissionTimer = nil
             return
@@ -100,8 +105,8 @@ final class AppModel: ObservableObject {
 
     func stop() {
         tap.stop()
-        // Must run: the cursor is detached from the mouse while frozen.
         clickFreeze.stop()
+        wheelRouter.stop()
     }
 
     // MARK: - Edits
@@ -142,6 +147,43 @@ final class AppModel: ObservableObject {
         settings.scrollMax = defaults.scrollMax
         settings.scrollWindow = defaults.scrollWindow
         settings.scrollInverted = defaults.scrollInverted
+        settings.velocityFloor = defaults.velocityFloor
+        settings.velocityGain = defaults.velocityGain
+        settings.velocityMax = defaults.velocityMax
+    }
+
+    // MARK: - Scroll-mode routing
+
+    /// nil means passthrough — the direction keeps its native smooth scrolling.
+    func assignWheel(_ action: GestureAction?, to direction: Direction) {
+        if let action {
+            settings.wheelActions[direction] = action
+        } else {
+            settings.wheelActions[direction] = nil
+            settings.wheelShortcuts[direction] = nil
+        }
+    }
+
+    func recordWheelShortcut(for direction: Direction) {
+        guard let shortcut = ShortcutRecorder.record(
+            title: "スクロールモードの\(direction.label)方向") else { return }
+        settings.wheelShortcuts[direction] = shortcut
+        settings.wheelActions[direction] = .shortcut
+    }
+
+    func clearWheelShortcut(for direction: Direction) {
+        settings.wheelShortcuts[direction] = nil
+        if settings.wheelActions[direction] == .shortcut {
+            settings.wheelActions[direction] = nil
+        }
+    }
+
+    func resetWheelSettings() {
+        let defaults = Settings()
+        settings.wheelActions = [:]
+        settings.wheelShortcuts = [:]
+        settings.wheelSpacesThreshold = defaults.wheelSpacesThreshold
+        settings.wheelSpacesCooldown = defaults.wheelSpacesCooldown
     }
 
     func resetPointerSettings() {
