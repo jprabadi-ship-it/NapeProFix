@@ -27,11 +27,17 @@ cp -R "$project_dir/.build/release/NapeProFix_NapeProFix.bundle" "$contents_dir/
 # A stable signing identity keeps the app's designated requirement unchanged
 # across rebuilds, so the accessibility approval survives an update. Ad-hoc
 # signatures are cdhash-based and lose it every time.
+# Developer ID first: it is the only identity notarization accepts, and it is
+# what lets the app open on a Mac other than this one. Apple Development is the
+# fallback for a machine without one.
 if [[ -n "${NAPEPROFIX_SIGN_IDENTITY:-}" ]]; then
   identity="$NAPEPROFIX_SIGN_IDENTITY"
 else
-  identity=$(security find-identity -v -p codesigning \
-    | awk -F'"' '/Apple Development|Developer ID Application/ {print $2; exit}')
+  identities=$(security find-identity -v -p codesigning)
+  identity=$(echo "$identities" | awk -F'"' '/Developer ID Application/ {print $2; exit}')
+  if [[ -z "$identity" ]]; then
+    identity=$(echo "$identities" | awk -F'"' '/Apple Development/ {print $2; exit}')
+  fi
 fi
 if [[ -z "$identity" ]]; then
   identity="-"
@@ -39,8 +45,24 @@ if [[ -z "$identity" ]]; then
 fi
 echo "署名ID: $identity" >&2
 
+# Hardened Runtime is required for notarization. No entitlements are needed:
+# accessibility is granted through TCC, not through an entitlement.
+sign_options=(--force --sign "$identity")
+if [[ "$identity" == "Developer ID Application"* ]]; then
+  sign_options+=(--options runtime --timestamp)
+fi
+
 xattr -cr "$app_dir"
-codesign --force --deep --sign "$identity" "$app_dir"
-codesign --verify --strict "$app_dir"
+
+# Sign the app bundle itself, without --deep. --deep does not reliably carry
+# the options to nested code: notarization rejected a --deep bundle because the
+# main executable had neither the hardened runtime nor a secure timestamp, even
+# though the outer bundle did.
+#
+# The SwiftPM resource bundle alongside the executable is not signed separately
+# — it holds no code, codesign rejects it as "bundle format unrecognized", and
+# signing the app seals it as a resource anyway.
+codesign "${sign_options[@]}" "$app_dir"
+codesign --verify --strict --deep "$app_dir"
 
 echo "$app_dir"

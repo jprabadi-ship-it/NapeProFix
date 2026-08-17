@@ -31,26 +31,41 @@ cp -R /tmp/napeprofix-stage/NapeProFix.app /Applications/
 
 初回起動時にアクセシビリティ権限を求められます。許可すると数秒で自動的に有効になります（アプリの再起動は不要）。
 
-`build-app.sh` はキーチェーンの Apple Development / Developer ID 証明書で署名します（`NAPEPROFIX_SIGN_IDENTITY` で明示指定も可能）。署名IDが安定していれば、再ビルドしてもアクセシビリティの許可は維持されます。プロジェクトがGoogleドライブ上にあると拡張属性が即座に復活して `codesign` が失敗するため、アプリバンドルは `/tmp/napeprofix-stage` で組み立てて署名しています。
+`build-app.sh` は Developer ID Application を優先し、無ければ Apple Development にフォールバックします（`NAPEPROFIX_SIGN_IDENTITY` で明示指定も可能）。署名IDが安定していれば、再ビルドしてもアクセシビリティの許可は維持されます。
 
 配布用の DMG を作る場合:
 
 ```sh
-./scripts/make-dmg.sh
+./scripts/make-dmg.sh          # 署名のみ
+./scripts/release.sh           # 署名 → 公証 → ステープル → 検証
 ```
 
-`build/NapeProFix-<バージョン>.dmg` ができます（例: `NapeProFix-1.5.1.dmg`）。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。公証はしていません（Developer ID Application 証明書が必要なため）。署名は Apple Development 証明書で、これは開発用のものです。
+`build/NapeProFix-<バージョン>.dmg` ができます。ドラッグでインストールできるよう `Applications` へのシンボリックリンク付きです。
 
-**別の Mac に持っていく場合**、Gatekeeper に止められます。macOS 15 以降は右クリック →「開く」では回避できません。次のどちらかで開いてください。
+`release.sh` の最後に `source=Notarized Developer ID` と出れば成功で、**どの Mac でもダブルクリックで開けます**。`--skip-notarize` を付けると DMG 作成で止まります。
 
-- システム設定 → プライバシーとセキュリティ を開き、下部に出る「このまま開く」を押す
-- または、コピー先の Mac で一度だけ次を実行する
+### 公証の準備
+
+1. Developer ID Application 証明書（Xcode → Settings → Accounts → Manage Certificates → **+**）
+2. notarytool の認証情報。**通常のターミナルで**一度だけ実行します
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/NapeProFix.app
+xcrun notarytool store-credentials NapeProFix --apple-id <apple-id> --team-id <team-id>
 ```
 
-どの Mac でもそのまま開けるようにするには、Apple Developer Program に登録して Developer ID Application 証明書を取得し、署名 → 公証 → ステープルまで行う必要があります。
+GUI セッションから切り離されたシェルではキーチェーンに書き込めず `User interaction is not allowed.` になります。キーチェーンを使いたくない場合は、App Store Connect の API キーを `NAPEPROFIX_API_KEY` / `NAPEPROFIX_API_KEY_ID` / `NAPEPROFIX_API_ISSUER` に設定すれば `release.sh` がそちらを使います。
+
+### 署名で踏んだ落とし穴
+
+**`--deep` は使いません。** 入れ子のコードにオプションが伝播せず、外側のバンドルに Hardened Runtime が付いていても内部の実行ファイルには付かないため、公証に弾かれます。アプリバンドル自体を署名すれば、中の実行ファイルも正しく署名されます。
+
+**SwiftPM のリソースバンドルは個別に署名しません。** 実行コードを含まないため codesign が `bundle format unrecognized` で拒否します。アプリを署名すればリソースとして封止されます。
+
+**entitlement は不要です。** アクセシビリティは TCC で付与されるもので、entitlement とは別系統です。
+
+**署名の種類を変えると、アクセシビリティの許可が一度失効します。** designated requirement が証明書に紐づくためです。それ以降は再ビルドしても維持されます。
+
+プロジェクトが Google ドライブ上にあると拡張属性が即座に復活して `codesign` が失敗するため、アプリバンドルは `/tmp/napeprofix-stage` で組み立てて署名しています。
 
 アイコンはコードから生成します。
 
