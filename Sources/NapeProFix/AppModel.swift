@@ -43,10 +43,17 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The device's battery level, or nil when it publishes none. Only a
+    /// Bluetooth connection carries one; on the dongle there is nothing to
+    /// read. See `BatteryMonitor`.
+    @Published private(set) var batteryPercent: Int?
+
     private lazy var tap = GestureTap(snapshot: snapshot)
     private lazy var clickFreeze = ClickFreeze(snapshot: snapshot)
     private lazy var wheelRouter = WheelRouter(snapshot: snapshot)
+    private lazy var battery = BatteryMonitor()
     private var permissionTimer: Timer?
+    private var batteryTimer: Timer?
 
     init() {
         settings = SettingsStore.load()
@@ -67,6 +74,7 @@ final class AppModel: ObservableObject {
 
     func start() {
         TapThread.shared.start()
+        startBatteryPolling()
         if tap.start() {
             isActive = true
             clickFreeze.start()
@@ -107,6 +115,33 @@ final class AppModel: ObservableObject {
         tap.stop()
         clickFreeze.stop()
         wheelRouter.stop()
+        batteryTimer?.invalidate()
+        batteryTimer = nil
+        battery.stop()
+    }
+
+    // MARK: - Battery
+
+    /// The device pushes changes while connected, so the timer is only there
+    /// to notice the device appearing on Bluetooth after launch — moving it
+    /// off the dongle produces no notification. Five minutes is plenty, and
+    /// the check runs on the monitor's own queue, nowhere near the event path.
+    private func startBatteryPolling() {
+        guard batteryTimer == nil else { return }
+        battery.onChange = { [weak self] value in self?.batteryPercent = value }
+        battery.start()
+        let timer = Timer(timeInterval: 300, repeats: true) { [battery] _ in
+            autoreleasepool { battery.refresh() }
+        }
+        // .common, or it stops firing while a menu is open or a window is
+        // being dragged.
+        RunLoop.main.add(timer, forMode: .common)
+        batteryTimer = timer
+    }
+
+    /// Also called as the menu opens, so the number is current when looked at.
+    func refreshBattery() {
+        battery.refresh()
     }
 
     // MARK: - Edits

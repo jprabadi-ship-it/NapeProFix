@@ -13,6 +13,7 @@ let package = Package(
             resources: [.process("Resources")],
             linkerSettings: [
                 .linkedFramework("AppKit"),
+                .linkedFramework("CoreBluetooth"),
                 .linkedFramework("CoreGraphics"),
                 .linkedFramework("ServiceManagement")
             ]

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ServiceManagement
 import SwiftUI
 
@@ -19,14 +20,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
     private var settingsWindow: NSWindow?
     private var observer: AnyObject?
+    private var batteryObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = StatusIcon.make()
         statusItem.button?.image?.accessibilityDescription = "NapeProFix"
+        statusItem.button?.imagePosition = .imageLeading
 
         model.start()
         rebuildMenu()
+
+        batteryObserver = model.$batteryPercent.sink { [weak self] percent in
+            self?.showBattery(percent)
+        }
 
         // The menu shows the active layer and rotation, so it has to follow
         // changes made in the settings window.
@@ -84,7 +91,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(item("終了", #selector(quit)))
 
+        menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// Shown to the right of the icon, and only when there is a level to show.
+    ///
+    /// Monospaced digits so the item keeps its width as the number changes;
+    /// a status item that shifts every few percent drags the whole menu bar
+    /// along with it.
+    private func showBattery(_ percent: Int?) {
+        guard let button = statusItem?.button else { return }
+        guard let percent else {
+            button.attributedTitle = NSAttributedString(string: "")
+            return
+        }
+        button.attributedTitle = NSAttributedString(
+            string: " \(percent)%",
+            attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
+                .foregroundColor: NSColor.labelColor,
+            ])
+        button.image?.accessibilityDescription = "NapeProFix — 電池残量 \(percent)%"
     }
 
     private func item(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -154,5 +182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    /// The five-minute poll is enough for the menu bar, but someone opening
+    /// the menu is asking for the number now.
+    func menuWillOpen(_ menu: NSMenu) {
+        model.refreshBattery()
     }
 }
