@@ -20,6 +20,9 @@ mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources"
 cp "$project_dir/.build/release/NapeProFix" "$contents_dir/MacOS/NapeProFix"
 cp "$project_dir/Resources/Info.plist" "$contents_dir/Info.plist"
 cp "$project_dir/Resources/AppIcon.icns" "$contents_dir/Resources/AppIcon.icns"
+# The Bluetooth prompt is shown by macOS before the app runs, so it follows the
+# system language through these rather than the in-app setting.
+cp -R "$project_dir/Resources/"*.lproj "$contents_dir/Resources/"
 # SwiftPM keeps target resources in their own bundle; Bundle.module looks for
 # it next to the executable's resources.
 cp -R "$project_dir/.build/release/NapeProFix_NapeProFix.bundle" "$contents_dir/Resources/"

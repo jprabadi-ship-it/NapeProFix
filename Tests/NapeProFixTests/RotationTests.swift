@@ -69,7 +69,7 @@ import Testing
     #expect(decoded.layer(1).shortcuts[.right]?.keyCode == 40)
     // A recorded shortcut is what the menu should show, not the enum name.
     #expect(decoded.layer(1).label(for: .right) == "⌘K")
-    #expect(decoded.layer(0).label(for: .up) == "スクロール（上）")
+    #expect(decoded.layer(0).label(for: .up) == GestureAction.scrollUp.label)
 }
 
 /// Settings saved before layers existed must migrate into layer 0 rather than

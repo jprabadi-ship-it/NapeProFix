@@ -11,10 +11,10 @@ enum Direction: Int, CaseIterable, Codable {
 
     var label: String {
         switch self {
-        case .up: return "上"
-        case .right: return "右"
-        case .down: return "下"
-        case .left: return "左"
+        case .up: return tr("上", "Up")
+        case .right: return tr("右", "Right")
+        case .down: return tr("下", "Down")
+        case .left: return tr("左", "Left")
         }
     }
 
@@ -59,7 +59,7 @@ enum GestureKey: CGKeyCode, CaseIterable {
     var launcherLabel: String {
         switch self {
         case .printScreen: return "Print Screen"
-        case .keypadSlash: return "÷ (テンキー)"
+        case .keypadSlash: return tr("÷ (テンキー)", "÷ (keypad)")
         case .numLock:     return "Num Lock"
         case .insert:      return "Insert"
         }

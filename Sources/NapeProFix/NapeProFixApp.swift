@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var observer: AnyObject?
     private var batteryObserver: AnyCancellable?
+    private var languageObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -33,6 +34,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         batteryObserver = model.$batteryPercent.sink { [weak self] percent in
             self?.showBattery(percent)
+        }
+
+        // The menu and the window title are plain strings, not views, so they
+        // have to be redrawn by hand. Deferred one turn because @Published
+        // fires before the new value is stored, and `tr` reads the stored one.
+        languageObserver = model.$language.dropFirst().sink { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.rebuildMenu()
+                self.settingsWindow?.title = tr("NapeProFix 設定", "NapeProFix Settings")
+            }
         }
 
         // The menu shows the active layer and rotation, so it has to follow
@@ -60,36 +72,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Clickable items first, status last. A menu bar menu opens downward,
         // so the top is nearest the pointer; putting the read-only lines up
         // there just pushes the buttons further away.
-        let login = item("ログイン時に起動", #selector(toggleLoginItem))
+        let login = item(tr("ログイン時に起動", "Launch at Login"), #selector(toggleLoginItem))
         login.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
         menu.addItem(login)
 
-        menu.addItem(item("設定を開く…", #selector(openSettings)))
+        menu.addItem(item(tr("設定を開く…", "Settings…"), #selector(openSettings)))
 
-        let pause = item(model.isPaused ? "一時停止を解除" : "一時停止（動作を全部止める）",
+        let pause = item(model.isPaused
+                         ? tr("一時停止を解除", "Resume")
+                         : tr("一時停止（動作を全部止める）", "Pause (stop everything)"),
                          #selector(togglePause))
         pause.state = model.isPaused ? .on : .off
         menu.addItem(pause)
         menu.addItem(.separator())
-        menu.addItem(item("90°回す", #selector(rotate)))
-        menu.addItem(item("次のレイヤーへ", #selector(nextLayer)))
+        menu.addItem(item(tr("90°回す", "Rotate 90°"), #selector(rotate)))
+        menu.addItem(item(tr("次のレイヤーへ", "Next Layer"), #selector(nextLayer)))
         menu.addItem(.separator())
 
-        let status = model.isPaused ? "一時停止中"
-            : (model.isActive ? "動作中" : "アクセシビリティ権限が必要")
+        let status = model.isPaused ? tr("一時停止中", "Paused")
+            : (model.isActive ? tr("動作中", "Running")
+                : tr("アクセシビリティ権限が必要", "Accessibility permission needed"))
         let header = NSMenuItem(
             title: "NapeProFix — \(status)", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
 
         let layerItem = NSMenuItem(
-            title: "レイヤー \(model.settings.activeLayer)　/　回転補正 \(model.settings.rotation * 90)°",
+            title: tr("レイヤー \(model.settings.activeLayer)　/　回転補正 \(model.settings.rotation * 90)°",
+                      "Layer \(model.settings.activeLayer)  /  Rotation \(model.settings.rotation * 90)°"),
             action: nil, keyEquivalent: "")
         layerItem.isEnabled = false
         menu.addItem(layerItem)
 
         menu.addItem(.separator())
-        menu.addItem(item("終了", #selector(quit)))
+        menu.addItem(languageMenuItem())
+        menu.addItem(item(tr("終了", "Quit"), #selector(quit)))
 
         menu.delegate = self
         statusItem.menu = menu
@@ -112,7 +129,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
                 .foregroundColor: NSColor.labelColor,
             ])
-        button.image?.accessibilityDescription = "NapeProFix — 電池残量 \(percent)%"
+        button.image?.accessibilityDescription =
+            tr("NapeProFix — 電池残量 \(percent)%", "NapeProFix — battery \(percent)%")
+    }
+
+    /// Titled in both languages, so it can be found by someone who cannot
+    /// read whichever one the menu is in.
+    private func languageMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        for language in AppLanguage.allCases {
+            let entry = item(language.label, #selector(chooseLanguage(_:)))
+            entry.representedObject = language.rawValue
+            entry.state = (language == model.language) ? .on : .off
+            submenu.addItem(entry)
+        }
+        let parent = NSMenuItem(title: "言語 / Language", action: nil, keyEquivalent: "")
+        parent.submenu = submenu
+        return parent
     }
 
     private func item(_ title: String, _ action: Selector) -> NSMenuItem {
@@ -143,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let window = NSWindow(contentViewController:
             NSHostingController(rootView: SettingsView(model: model)))
-        window.title = "NapeProFix 設定"
+        window.title = tr("NapeProFix 設定", "NapeProFix Settings")
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
         window.center()
@@ -151,6 +184,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func chooseLanguage(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let language = AppLanguage(rawValue: raw) else { return }
+        model.language = language
     }
 
     @objc private func togglePause() {

@@ -20,13 +20,17 @@ enum ShortcutRecorder {
     @MainActor
     static func record(title: String) -> Shortcut? {
         let alert = NSAlert()
-        alert.messageText = "\(title)のショートカット"
-        alert.informativeText = """
+        alert.messageText = tr("\(title)のショートカット", "Shortcut for \(title)")
+        alert.informativeText = tr("""
         割り当てたいキーの組み合わせを押してください。
 
         修飾キーだけでは確定しません。Esc で取り消します。
-        """
-        alert.addButton(withTitle: "取り消す")
+        """, """
+        Press the key combination you want to assign.
+
+        Modifier keys alone won’t register. Press Esc to cancel.
+        """)
+        alert.addButton(withTitle: tr("取り消す", "Cancel"))
 
         var captured: Shortcut?
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in

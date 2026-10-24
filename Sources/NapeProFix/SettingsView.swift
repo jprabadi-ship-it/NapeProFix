@@ -2,18 +2,25 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
+    /// Held out here, above the `.id` below, so changing the language from
+    /// the Setup tab does not throw the window back to the first tab.
+    @State private var tab = 0
 
     var body: some View {
         VStack(spacing: 8) {
-            TabView {
+            TabView(selection: $tab) {
                 GestureTab(model: model)
-                    .tabItem { Label("ジェスチャーモード", systemImage: "circle.circle") }
+                    .tabItem { Label(tr("ジェスチャーモード", "Gesture Mode"), systemImage: "circle.circle") }
+                    .tag(0)
                 WheelTab(model: model)
-                    .tabItem { Label("スクロールモード", systemImage: "arrow.up.arrow.down") }
+                    .tabItem { Label(tr("スクロールモード", "Scroll Mode"), systemImage: "arrow.up.arrow.down") }
+                    .tag(1)
                 PointerTab(model: model)
-                    .tabItem { Label("ポインタ", systemImage: "cursorarrow") }
+                    .tabItem { Label(tr("ポインタ", "Pointer"), systemImage: "cursorarrow") }
+                    .tag(2)
                 SetupTab(model: model)
-                    .tabItem { Label("セットアップ", systemImage: "questionmark.circle") }
+                    .tabItem { Label(tr("セットアップ", "Setup"), systemImage: "questionmark.circle") }
+                    .tag(3)
             }
 
             Text("NapeProFix \(AppVersion.display)")
@@ -23,6 +30,9 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(width: 640, height: 560)
+        // Every string is resolved once, when its view is built, so a new
+        // language needs the whole tree built again.
+        .id(model.language)
     }
 }
 
@@ -36,7 +46,7 @@ private struct GestureTab: View {
         ScrollView {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Picker("編集するレイヤー", selection: $editingLayer) {
+                Picker(tr("編集するレイヤー", "Layer to edit"), selection: $editingLayer) {
                     ForEach(0..<Settings.layerCount, id: \.self) { index in
                         Text(label(for: index)).tag(index)
                     }
@@ -46,10 +56,10 @@ private struct GestureTab: View {
                 Spacer()
 
                 if model.settings.activeLayer == editingLayer {
-                    Label("使用中", systemImage: "checkmark.circle.fill")
+                    Label(tr("使用中", "In use"), systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.tint)
                 } else {
-                    Button("このレイヤーを使う") { model.settings.activeLayer = editingLayer }
+                    Button(tr("このレイヤーを使う", "Use this layer")) { model.settings.activeLayer = editingLayer }
                 }
             }
 
@@ -64,29 +74,38 @@ private struct GestureTab: View {
             RotationRow(model: model)
 
             HStack {
-                Text("レイヤー切替")
+                Text(tr("レイヤー切替", "Layer switch"))
                     .frame(width: 60, alignment: .leading)
-                Text(model.settings.layerCycleShortcut?.display ?? "未設定")
+                Text(model.settings.layerCycleShortcut?.display ?? tr("未設定", "Not set"))
                     .foregroundStyle(model.settings.layerCycleShortcut == nil
                                      ? .secondary : .primary)
-                Button("記録…") { model.recordLayerCycleShortcut() }
+                Button(tr("記録…", "Record…")) { model.recordLayerCycleShortcut() }
                 if model.settings.layerCycleShortcut != nil {
-                    Button("削除") { model.clearLayerCycleShortcut() }
+                    Button(tr("削除", "Remove")) { model.clearLayerCycleShortcut() }
                 }
                 Spacer()
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("登録したキーを Launcher で Nape Pro のボタン（同時押しなど）に割り当てると、"
-                     + "そのボタンでレイヤーを切り替えられます。"
-                     + "何も設定していないレイヤーは飛ばします。")
+                Text(tr("登録したキーを Launcher で Nape Pro のボタン（同時押しなど）に割り当てると、"
+                        + "そのボタンでレイヤーを切り替えられます。"
+                        + "何も設定していないレイヤーは飛ばします。",
+                        "Assign the recorded key to a Nape Pro button (or a combo press) in Launcher, "
+                        + "and that button will switch layers. "
+                        + "Layers with nothing assigned are skipped."))
                 // Choosing this key is a trade-off the user has to make for
                 // their own setup, so give them what they need to decide.
-                Text("このアプリは入力元のデバイスを区別できません。"
-                     + "登録したキーはキーボードから直接押しても同じ動作になり、"
-                     + "他のアプリからは使えなくなります。"
-                     + "テンキーのキーはテンキー付きキーボードで衝突し、"
-                     + "⌃⌥ + 英字はテンキーの影響を受けませんがアプリのショートカットと"
-                     + "衝突しうる、という違いがあります。")
+                Text(tr("このアプリは入力元のデバイスを区別できません。"
+                        + "登録したキーはキーボードから直接押しても同じ動作になり、"
+                        + "他のアプリからは使えなくなります。"
+                        + "テンキーのキーはテンキー付きキーボードで衝突し、"
+                        + "⌃⌥ + 英字はテンキーの影響を受けませんがアプリのショートカットと"
+                        + "衝突しうる、という違いがあります。",
+                        "This app can’t tell which device a key came from. "
+                        + "Pressing the recorded key on your keyboard does the same thing, "
+                        + "and other apps can no longer use it. "
+                        + "Keypad keys clash on keyboards that have a numeric keypad; "
+                        + "⌃⌥ + a letter avoids the keypad but may clash with "
+                        + "app shortcuts."))
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -108,9 +127,9 @@ private struct GestureTab: View {
     }
 
     private func label(for index: Int) -> String {
-        var text = "レイヤー \(index)"
-        if index == model.settings.activeLayer { text += "（使用中）" }
-        else if model.settings.layer(index).isEmpty { text += "（未設定）" }
+        var text = tr("レイヤー \(index)", "Layer \(index)")
+        if index == model.settings.activeLayer { text += tr("（使用中）", " (in use)") }
+        else if model.settings.layer(index).isEmpty { text += tr("（未設定）", " (empty)") }
         return text
     }
 }
@@ -139,14 +158,14 @@ private struct DirectionRow: View {
                 .frame(width: 220)
 
             if config.action(for: direction) == .shortcut {
-                Text(config.shortcuts[direction]?.display ?? "未記録")
+                Text(config.shortcuts[direction]?.display ?? tr("未記録", "Not recorded"))
                     .foregroundStyle(config.shortcuts[direction] == nil ? .secondary : .primary)
                     .frame(minWidth: 70, alignment: .leading)
             }
 
-            Button("ショートカットを記録…") { model.recordShortcut(for: direction, layer: layer) }
+            Button(tr("ショートカットを記録…", "Record Shortcut…")) { model.recordShortcut(for: direction, layer: layer) }
             if config.shortcuts[direction] != nil {
-                Button("削除") { model.clearShortcut(for: direction, layer: layer) }
+                Button(tr("削除", "Remove")) { model.clearShortcut(for: direction, layer: layer) }
             }
             Spacer()
         }
@@ -159,7 +178,7 @@ private struct RotationRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("回転補正")
+                Text(tr("回転補正", "Rotation"))
                     .frame(width: 60, alignment: .leading)
                 Picker("", selection: Binding(
                     get: { model.settings.rotation },
@@ -171,8 +190,10 @@ private struct RotationRow: View {
                     .frame(width: 240)
                 Spacer()
             }
-            Text("ジェスチャの向きがズレたときに合わせます。"
-                 + "Launcher を初期化するとオクタシフトも既定値に戻るので、まず 0° を試してください。")
+            Text(tr("ジェスチャの向きがズレたときに合わせます。"
+                    + "Launcher を初期化するとオクタシフトも既定値に戻るので、まず 0° を試してください。",
+                    "Corrects gestures that fire in the wrong direction. "
+                    + "Resetting Launcher also resets Octa-Shift to its default, so try 0° first."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -189,29 +210,34 @@ private struct GestureScrollTuning: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("スクロール動作の調整（上下ジェスチャ）").font(.headline)
+            Text(tr("スクロール動作の調整（上下ジェスチャ）", "Scroll tuning (up/down gestures)")).font(.headline)
 
             VStack(alignment: .leading, spacing: 4) {
-                Toggle("スクロールの向きを反転する", isOn: Binding(
+                Toggle(tr("スクロールの向きを反転する", "Reverse scroll direction"), isOn: Binding(
                     get: { model.settings.scrollInverted },
                     set: { model.settings.scrollInverted = $0 }))
-                Text("上に転がしたときに下へ動いてしまう場合に入れてください。"
-                     + "ジェスチャのスクロールにだけ効きます。")
+                Text(tr("上に転がしたときに下へ動いてしまう場合に入れてください。"
+                        + "ジェスチャのスクロールにだけ効きます。",
+                        "Turn this on if rolling up scrolls down. "
+                        + "Affects gesture scrolling only."))
                     .font(.caption).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Picker("計り方", selection: Binding(
+                Picker(tr("計り方", "Measure by"), selection: Binding(
                     get: { model.settings.scrollMode },
                     set: { model.settings.scrollMode = $0 })) {
-                        Text("行単位").tag(Settings.ScrollMode.lines)
-                        Text("速度に応じて").tag(Settings.ScrollMode.velocity)
+                        Text(tr("行単位", "Lines")).tag(Settings.ScrollMode.lines)
+                        Text(tr("速度に応じて", "Speed")).tag(Settings.ScrollMode.velocity)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 300)
-                Text("ボールの移動量そのものはアプリに届かないため、「速度に応じて」は"
-                     + "ジェスチャの発生間隔から転がす速さを推定し、ピクセル単位で"
-                     + "加速カーブをかけます。")
+                Text(tr("ボールの移動量そのものはアプリに届かないため、「速度に応じて」は"
+                        + "ジェスチャの発生間隔から転がす速さを推定し、ピクセル単位で"
+                        + "加速カーブをかけます。",
+                        "The app never sees how far the ball moved. “Speed” estimates "
+                        + "how fast you roll from the gap between gestures, then applies "
+                        + "an acceleration curve in pixels."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -220,25 +246,25 @@ private struct GestureScrollTuning: View {
                 // The lower bound is 3, not 1: a single line per gesture looks
                 // identical to the app being broken, and nothing on screen
                 // points back at this setting as the cause.
-                stepper("1回あたり", value: Binding(
+                stepper(tr("1回あたり", "Per gesture"), value: Binding(
                     get: { model.settings.scrollBase },
-                    set: { model.settings.scrollBase = $0 }), range: 3...40, unit: "行")
+                    set: { model.settings.scrollBase = $0 }), range: 3...40, unit: tr("行", "lines"))
 
-                stepper("連打1回ごとの増分", value: Binding(
+                stepper(tr("連打1回ごとの増分", "Added per repeat"), value: Binding(
                     get: { model.settings.scrollStep },
-                    set: { model.settings.scrollStep = $0 }), range: 0...20, unit: "行")
+                    set: { model.settings.scrollStep = $0 }), range: 0...20, unit: tr("行", "lines"))
 
-                stepper("上限", value: Binding(
+                stepper(tr("上限", "Maximum"), value: Binding(
                     get: { model.settings.scrollMax },
-                    set: { model.settings.scrollMax = $0 }), range: 1...80, unit: "行")
+                    set: { model.settings.scrollMax = $0 }), range: 1...80, unit: tr("行", "lines"))
             } else {
-                stepper("最小量（ゆっくり転がしたとき）", value: Binding(
+                stepper(tr("最小量（ゆっくり転がしたとき）", "Minimum (slow roll)"), value: Binding(
                     get: { model.settings.velocityFloor },
                     set: { model.settings.velocityFloor = $0 }),
                     range: 10...200, unit: "px", labelWidth: 220)
 
                 HStack {
-                    Text("加速の強さ")
+                    Text(tr("加速の強さ", "Acceleration"))
                         .frame(width: 220, alignment: .leading)
                     Slider(value: Binding(
                         get: { model.settings.velocityGain },
@@ -248,13 +274,13 @@ private struct GestureScrollTuning: View {
                         .monospacedDigit()
                 }
 
-                stepper("上限", value: Binding(
+                stepper(tr("上限", "Maximum"), value: Binding(
                     get: { model.settings.velocityMax },
                     set: { model.settings.velocityMax = $0 }),
                     range: 100...2000, unit: "px", labelWidth: 220)
             }
 
-            Button("既定値に戻す") { model.resetScrollSettings() }
+            Button(tr("既定値に戻す", "Restore Defaults")) { model.resetScrollSettings() }
         }
     }
 
@@ -281,8 +307,10 @@ private struct WheelTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("スクロールモード（ボールスクロール中）の転がし方向に動作を割り当てます。"
-                 + "「そのままスクロール」は回転量に比例したデバイス本来のスクロールを通します。")
+            Text(tr("スクロールモード（ボールスクロール中）の転がし方向に動作を割り当てます。"
+                    + "「そのままスクロール」は回転量に比例したデバイス本来のスクロールを通します。",
+                    "Assign actions to roll directions in scroll mode (while ball scrolling). "
+                    + "“Scroll normally” passes through the device’s own smooth scrolling."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -295,7 +323,7 @@ private struct WheelTab: View {
             Divider()
 
             HStack {
-                Text("動作の発火に必要な量")
+                Text(tr("動作の発火に必要な量", "Distance to trigger"))
                     .frame(width: 170, alignment: .leading)
                 Slider(value: Binding(
                     get: { Double(model.settings.wheelSpacesThreshold) },
@@ -305,30 +333,37 @@ private struct WheelTab: View {
                 Text("\(model.settings.wheelSpacesThreshold) px").monospacedDigit()
             }
             HStack {
-                Text("次の発火までの間隔")
+                Text(tr("次の発火までの間隔", "Cooldown"))
                     .frame(width: 170, alignment: .leading)
                 Slider(value: Binding(
                     get: { model.settings.wheelSpacesCooldown },
                     set: { model.settings.wheelSpacesCooldown = $0 }),
                     in: 0.2...2.0)
                 .frame(width: 180)
-                Text(String(format: "%.1f 秒", model.settings.wheelSpacesCooldown))
+                Text(String(format: tr("%.1f 秒", "%.1f s"), model.settings.wheelSpacesCooldown))
                     .monospacedDigit()
             }
-            Text("割り当てた方向は、この量まで転がしたときに1回発火します。"
-                 + "その方向の通常のスクロールは無効になります。")
+            Text(tr("割り当てた方向は、この量まで転がしたときに1回発火します。"
+                    + "その方向の通常のスクロールは無効になります。",
+                    "An assigned direction fires once each time you roll this far. "
+                    + "Normal scrolling in that direction is turned off."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button("既定値に戻す（すべて通す）") { model.resetWheelSettings() }
+            Button(tr("既定値に戻す（すべて通す）", "Restore Defaults (pass everything through)")) { model.resetWheelSettings() }
 
             Divider()
 
-            Text("デバイス側でボールスクロールが使える状態にしてください。"
-                 + "ボタンの「ボールスクロール」を押しながら転がすか、"
-                 + "アドバンスモードの「常にスクロールモードを有効にする」をオンにします。"
-                 + "他のマウスのスクロールにも同じ割り当てが効きます"
-                 + "（入力元のデバイスを区別できないため）。")
+            Text(tr("デバイス側でボールスクロールが使える状態にしてください。"
+                    + "ボタンの「ボールスクロール」を押しながら転がすか、"
+                    + "アドバンスモードの「常にスクロールモードを有効にする」をオンにします。"
+                    + "他のマウスのスクロールにも同じ割り当てが効きます"
+                    + "（入力元のデバイスを区別できないため）。",
+                    "Ball scrolling must be enabled on the device. "
+                    + "Either hold the button set to Ball Scroll while rolling, "
+                    + "or turn on “Always enable scroll mode” in Advanced Mode. "
+                    + "These assignments also apply to other mice’s scrolling "
+                    + "(the app can’t tell which device input came from)."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -356,7 +391,7 @@ private struct WheelDirectionRow: View {
             Picker("", selection: Binding(
                 get: { model.settings.wheelActions[direction] },
                 set: { model.assignWheel($0, to: direction) })) {
-                    Text("そのままスクロール").tag(GestureAction?.none)
+                    Text(tr("そのままスクロール", "Scroll normally")).tag(GestureAction?.none)
                     ForEach(Self.choices, id: \.self) { action in
                         Text(action.label).tag(GestureAction?.some(action))
                     }
@@ -365,15 +400,15 @@ private struct WheelDirectionRow: View {
                 .frame(width: 220)
 
             if model.settings.wheelActions[direction] == .shortcut {
-                Text(model.settings.wheelShortcuts[direction]?.display ?? "未記録")
+                Text(model.settings.wheelShortcuts[direction]?.display ?? tr("未記録", "Not recorded"))
                     .foregroundStyle(model.settings.wheelShortcuts[direction] == nil
                                      ? .secondary : .primary)
                     .frame(minWidth: 70, alignment: .leading)
             }
 
-            Button("ショートカットを記録…") { model.recordWheelShortcut(for: direction) }
+            Button(tr("ショートカットを記録…", "Record Shortcut…")) { model.recordWheelShortcut(for: direction) }
             if model.settings.wheelShortcuts[direction] != nil {
-                Button("削除") { model.clearWheelShortcut(for: direction) }
+                Button(tr("削除", "Remove")) { model.clearWheelShortcut(for: direction) }
             }
             Spacer()
         }
@@ -387,13 +422,15 @@ private struct PointerTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Toggle("クリック時にカーソルを固定する", isOn: Binding(
+            Toggle(tr("クリック時にカーソルを固定する", "Hold the cursor still while clicking"), isOn: Binding(
                 get: { model.settings.clickFreezeEnabled },
                 set: { model.settings.clickFreezeEnabled = $0 }))
                 .font(.headline)
 
-            Text("ボタンを押している間カーソルを止め、離したあと元の位置に戻します。"
-                 + "指がボールに触れてクリック位置がずれるのを防ぎます。")
+            Text(tr("ボタンを押している間カーソルを止め、離したあと元の位置に戻します。"
+                    + "指がボールに触れてクリック位置がずれるのを防ぎます。",
+                    "Freezes the cursor while a button is held and puts it back after release. "
+                    + "Stops your finger brushing the ball from shifting the click."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -401,7 +438,7 @@ private struct PointerTab: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text("ドラッグとみなす移動量")
+                    Text(tr("ドラッグとみなす移動量", "Drag threshold"))
                         .frame(width: 170, alignment: .leading)
                     Stepper(value: Binding(
                         get: { model.settings.clickFreezeThreshold },
@@ -411,32 +448,36 @@ private struct PointerTab: View {
                         .frame(width: 130)
                     Spacer()
                 }
-                Text("押している間にこれ以上動かしたら、意図的なドラッグとみなして固定を解除します。"
-                     + "小さくするとドラッグしやすく、大きくするとズレに強くなります。")
+                Text(tr("押している間にこれ以上動かしたら、意図的なドラッグとみなして固定を解除します。"
+                        + "小さくするとドラッグしやすく、大きくするとズレに強くなります。",
+                        "Moving further than this while held counts as a deliberate drag and releases the cursor. "
+                        + "Lower makes dragging easier; higher resists drift better."))
                     .font(.caption).foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text("離したあとの保持時間")
+                    Text(tr("離したあとの保持時間", "Hold after release"))
                         .frame(width: 170, alignment: .leading)
                     Slider(value: Binding(
                         get: { model.settings.clickFreezeHold },
                         set: { model.settings.clickFreezeHold = $0 }), in: 0...0.4)
                     .frame(width: 190)
-                    Text(String(format: "%.2f 秒", model.settings.clickFreezeHold))
+                    Text(String(format: tr("%.2f 秒", "%.2f s"), model.settings.clickFreezeHold))
                         .monospacedDigit()
                 }
-                Text("指を離す瞬間にもボールは動きます。ここを長くするとその分まで戻します。")
+                Text(tr("指を離す瞬間にもボールは動きます。ここを長くするとその分まで戻します。", "The ball moves as you lift your finger too. A longer hold undoes that movement as well."))
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Button("既定値に戻す") { model.resetPointerSettings() }
+            Button(tr("既定値に戻す", "Restore Defaults")) { model.resetPointerSettings() }
 
             Divider()
 
-            Text("それでも全体に過敏な場合は、Keychron Launcher の DPI Settings で "
-                 + "DPI を下げるほうが根本的です。このアプリはクリック時のズレだけを扱います。")
+            Text(tr("それでも全体に過敏な場合は、Keychron Launcher の DPI Settings で "
+                    + "DPI を下げるほうが根本的です。このアプリはクリック時のズレだけを扱います。",
+                    "If the pointer still feels too sensitive overall, lower the DPI in Keychron Launcher’s "
+                    + "DPI Settings instead. This app only handles drift while clicking."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -454,27 +495,38 @@ private struct SetupTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if model.isActive {
-                    Label("動作中", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Label(tr("動作中", "Running"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("アクセシビリティ権限が必要です", systemImage: "exclamationmark.triangle.fill")
+                        Label(tr("アクセシビリティ権限が必要です", "Accessibility permission needed"), systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Button("システム設定を開く") { model.openAccessibilitySettings() }
-                        Text("許可すると数秒で自動的に有効になります。再起動は不要です。")
+                        Button(tr("システム設定を開く", "Open System Settings")) { model.openAccessibilitySettings() }
+                        Text(tr("許可すると数秒で自動的に有効になります。再起動は不要です。", "Once allowed, it turns on by itself within a few seconds. No restart needed."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
+                Picker("言語 / Language", selection: $model.language) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.label).tag(language)
+                    }
+                }
+                .frame(width: 320)
+
                 Divider()
 
-                Text("この2つが揃っていないとジェスチャは動きません").font(.headline)
+                Text(tr("この2つが揃っていないとジェスチャは動きません", "Gestures won’t work unless both of these are set")).font(.headline)
 
-                Text("**アドバンスモード**\n"
-                     + "「常にジェスチャーモードを有効にする」をオンにしてください。"
-                     + "オフの場合、ジェスチャは「ボールジェスチャ」を割り当てたボタンを"
-                     + "押している間しか発火しません。")
+                Text(LocalizedStringKey(tr("**アドバンスモード**\n"
+                        + "「常にジェスチャーモードを有効にする」をオンにしてください。"
+                        + "オフの場合、ジェスチャは「ボールジェスチャ」を割り当てたボタンを"
+                        + "押している間しか発火しません。",
+                        "**Advanced Mode**\n"
+                        + "Turn on “Always enable gesture mode”. "
+                        + "If it’s off, gestures only fire while you hold the button "
+                        + "assigned to Ball Gesture.")))
 
-                Text("**トラックボールジェスチャ**（修飾キーはすべてオフ）")
+                Text(LocalizedStringKey(tr("**トラックボールジェスチャ**（修飾キーはすべてオフ）", "**Trackball Gestures** (all modifier keys off)")))
                 ForEach(GestureKey.allCases, id: \.self) { key in
                     Text("　\(key.firmwareDirection.label)　→　\(key.launcherLabel)")
                         .monospaced()
@@ -482,7 +534,7 @@ private struct SetupTab: View {
 
                 if let image = Bundle.module.image(forResource: "launcher-setup") {
                     Button {
-                        ImageViewer.show(image, title: "Launcher のトラックボールジェスチャ設定")
+                        ImageViewer.show(image, title: tr("Launcher のトラックボールジェスチャ設定", "Launcher trackball gesture settings"))
                     } label: {
                         Image(nsImage: image)
                             .resizable().scaledToFit()
@@ -491,34 +543,46 @@ private struct SetupTab: View {
                                 .stroke(.separator))
                     }
                     .buttonStyle(.plain)
-                    .help("クリックで別ウインドウに拡大表示")
+                    .help(tr("クリックで別ウインドウに拡大表示", "Click to enlarge in a separate window"))
 
-                    Text("この状態が正解です。クリックすると別ウインドウで開き、"
-                         + "ピンチやスクロールで拡大できます。"
-                         + "設定後、オレンジの「保存」を押してください。")
+                    Text(tr("この状態が正解です。クリックすると別ウインドウで開き、"
+                            + "ピンチやスクロールで拡大できます。"
+                            + "設定後、オレンジの「保存」を押してください。",
+                            "This is the correct setup: Up = Print Screen, Down = ÷ (keypad), "
+                            + "Left = Num Lock, Right = Insert. Click to open it in a separate window, "
+                            + "where you can pinch or scroll to zoom. "
+                            + "When you’re done, press the orange Save button."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
                 Divider()
 
-                Text("注意点").font(.headline)
-                Text("・修飾キーを付けると、ジェスチャ1回ごとにその修飾キーが押されて離され、"
-                     + "連続で転がすと連打になります。アプリ側では防げません。")
-                Text("・Pause と Scroll Lock は使えません。Pause は macOS でキーコードを持たず、"
-                     + "Scroll Lock は輝度ダウンとして横取りされます。")
-                Text("・Launcher が Num Lock を「Num<br/>Lock」と表示することがありますが、"
-                     + "Launcher 側の表示上の不具合で、設定内容は正しいです。")
-                Text("・Launcher を初期化すると、キーの割り当てだけでなくオクタシフトの回転も"
-                     + "既定値に戻ります。入れ直したあと回転補正を 0° にしてください。")
+                Text(tr("注意点", "Notes")).font(.headline)
+                Text(tr("・修飾キーを付けると、ジェスチャ1回ごとにその修飾キーが押されて離され、"
+                        + "連続で転がすと連打になります。アプリ側では防げません。",
+                        "• If you add a modifier key, it is pressed and released on every gesture, "
+                        + "so continuous rolling taps it repeatedly. The app can’t prevent this."))
+                Text(tr("・Pause と Scroll Lock は使えません。Pause は macOS でキーコードを持たず、"
+                        + "Scroll Lock は輝度ダウンとして横取りされます。",
+                        "• Pause and Scroll Lock don’t work. Pause has no key code on macOS, "
+                        + "and macOS intercepts Scroll Lock as brightness down."))
+                Text(tr("・Launcher が Num Lock を「Num<br/>Lock」と表示することがありますが、"
+                        + "Launcher 側の表示上の不具合で、設定内容は正しいです。",
+                        "• Launcher sometimes shows Num Lock as “Num<br/>Lock”. "
+                        + "That’s a display bug in Launcher; the setting itself is correct."))
+                Text(tr("・Launcher を初期化すると、キーの割り当てだけでなくオクタシフトの回転も"
+                        + "既定値に戻ります。入れ直したあと回転補正を 0° にしてください。",
+                        "• Resetting Launcher resets Octa-Shift rotation as well as key assignments. "
+                        + "After setting the keys again, set Rotation to 0°."))
 
                 Divider()
 
                 HStack(spacing: 6) {
-                    Text("役に立ったら")
-                    Link("ほしい物リスト",
+                    Text(tr("役に立ったら", "If this helped, "))
+                    Link(tr("ほしい物リスト", "send the author something"),
                          destination: URL(string:
                             "https://www.amazon.co.jp/hz/wishlist/ls/WFRWJC8J65NF")!)
-                    Text("から何か送ってもらえると喜びます。")
+                    Text(tr("から何か送ってもらえると喜びます。", "from their wish list."))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

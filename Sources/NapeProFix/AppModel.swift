@@ -19,6 +19,12 @@ final class AppModel: ObservableObject {
         wheelRouter.refresh()
     }
 
+    /// The UI language. Views read `tr`, which reads the stored preference;
+    /// this exists so the settings window and the menu redraw on a change.
+    @Published var language = AppLanguage.preference {
+        didSet { AppLanguage.preference = language }
+    }
+
     /// Whether the event tap is running, i.e. whether accessibility has been
     /// granted. Surfaced so the settings window can say so plainly.
     @Published private(set) var isActive = false
@@ -160,7 +166,7 @@ final class AppModel: ObservableObject {
 
     func recordShortcut(for direction: Direction, layer: Int) {
         guard let shortcut = ShortcutRecorder.record(
-            title: "レイヤー \(layer) の\(direction.label)方向") else { return }
+            title: tr("レイヤー \(layer) の\(direction.label)方向", "Layer \(layer) \(direction.label)")) else { return }
         settings.update(layer: layer) {
             $0.shortcuts[direction] = shortcut
             $0.actions[direction] = .shortcut
@@ -201,7 +207,7 @@ final class AppModel: ObservableObject {
 
     func recordWheelShortcut(for direction: Direction) {
         guard let shortcut = ShortcutRecorder.record(
-            title: "スクロールモードの\(direction.label)方向") else { return }
+            title: tr("スクロールモードの\(direction.label)方向", "Scroll mode \(direction.label)")) else { return }
         settings.wheelShortcuts[direction] = shortcut
         settings.wheelActions[direction] = .shortcut
     }
@@ -229,7 +235,7 @@ final class AppModel: ObservableObject {
     }
 
     func recordLayerCycleShortcut() {
-        guard let shortcut = ShortcutRecorder.record(title: "レイヤー切替") else { return }
+        guard let shortcut = ShortcutRecorder.record(title: tr("レイヤー切替", "Layer switch")) else { return }
         settings.layerCycleShortcut = shortcut
     }
 

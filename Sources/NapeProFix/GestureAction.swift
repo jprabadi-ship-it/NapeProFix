@@ -16,16 +16,16 @@ enum GestureAction: String, CaseIterable, Codable {
 
     var label: String {
         switch self {
-        case .scrollUp:       return "スクロール（上）"
-        case .scrollDown:     return "スクロール（下）"
-        case .spaceLeft:      return "デスクトップを左へ"
-        case .spaceRight:     return "デスクトップを右へ"
+        case .scrollUp:       return tr("スクロール（上）", "Scroll up")
+        case .scrollDown:     return tr("スクロール（下）", "Scroll down")
+        case .spaceLeft:      return tr("デスクトップを左へ", "Desktop left")
+        case .spaceRight:     return tr("デスクトップを右へ", "Desktop right")
         case .missionControl: return "Mission Control"
-        case .appWindows:     return "アプリケーションウインドウ"
-        case .browserBack:    return "戻る"
-        case .browserForward: return "進む"
-        case .shortcut:       return "ショートカット"
-        case .none:           return "なし"
+        case .appWindows:     return tr("アプリケーションウインドウ", "App Exposé")
+        case .browserBack:    return tr("戻る", "Back")
+        case .browserForward: return tr("進む", "Forward")
+        case .shortcut:       return tr("ショートカット", "Shortcut")
+        case .none:           return tr("なし", "None")
         }
     }
 }
