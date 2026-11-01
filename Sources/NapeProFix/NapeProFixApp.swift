@@ -21,11 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private var observer: AnyObject?
     private var batteryObserver: AnyCancellable?
+    private var layerObserver: AnyCancellable?
+    private var batteryPercent: Int?
+    // Kept here rather than read back from the model: @Published delivers in
+    // willSet, before model.settings holds the new value.
+    private var layer = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = StatusIcon.make()
-        statusItem.button?.image?.accessibilityDescription = "NapeProFix"
         statusItem.button?.imagePosition = .imageLeading
 
         model.start()
@@ -34,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         batteryObserver = model.$batteryPercent.sink { [weak self] percent in
             self?.showBattery(percent)
         }
+        // Layer changes come from the menu, the settings window and the
+        // layer-cycle shortcut alike; all of them go through settings.
+        layerObserver = model.$settings.map(\.activeLayer).removeDuplicates()
+            .sink { [weak self] layer in self?.showLayer(layer) }
 
         // The menu shows the active layer and rotation, so it has to follow
         // changes made in the settings window.
@@ -102,6 +109,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// along with it.
     private func showBattery(_ percent: Int?) {
         guard let button = statusItem?.button else { return }
+        batteryPercent = percent
+        describeIcon()
         guard let percent else {
             button.attributedTitle = NSAttributedString(string: "")
             return
@@ -112,7 +121,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
                 .foregroundColor: NSColor.labelColor,
             ])
-        button.image?.accessibilityDescription = "NapeProFix — 電池残量 \(percent)%"
+    }
+
+    /// Drawn into the icon itself, at its left end. See `StatusIcon`.
+    private func showLayer(_ layer: Int) {
+        self.layer = layer
+        statusItem?.button?.image = StatusIcon.make(layer: layer)
+        describeIcon()
+    }
+
+    private func describeIcon() {
+        var parts = ["NapeProFix", "レイヤー \(layer)"]
+        if let batteryPercent { parts.append("電池残量 \(batteryPercent)%") }
+        statusItem?.button?.image?.accessibilityDescription = parts.joined(separator: " — ")
     }
 
     private func item(_ title: String, _ action: Selector) -> NSMenuItem {
