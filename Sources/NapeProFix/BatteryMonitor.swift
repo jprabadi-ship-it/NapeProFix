@@ -1,13 +1,12 @@
 import CoreBluetooth
 import Foundation
 
-/// Reads the Nape Pro's battery level over Bluetooth LE.
+/// Reads the Nape Pro's battery level, over Bluetooth LE or through the
+/// 2.4GHz receiver, whichever the device is on.
 ///
-/// The device publishes the standard Battery Service (0x180F, characteristic
-/// 0x2A19). That is the only place the level exists, so it is only readable
-/// while the device is connected over Bluetooth; on the 2.4GHz dongle it
-/// arrives as plain USB HID with nothing to read. The other routes were ruled
-/// out by measurement:
+/// Over Bluetooth the device publishes the standard Battery Service (0x180F,
+/// characteristic 0x2A19). On the receiver there is no standard route, and
+/// these were ruled out by measurement:
 ///
 /// - No HID Battery System page (0x85) in the report descriptor.
 /// - The VIA channel (0xFF60) answers 0xFF for every `id_get_keyboard_value`
@@ -16,16 +15,19 @@ import Foundation
 /// - macOS does not republish the level in the IO registry for this device —
 ///   `BatteryPercent` is absent even while the system's own Bluetooth menu
 ///   shows a number — so there is nothing to read there either.
-/// - Keychron's own interface (usage page 0x8C) is undocumented; guessing at
-///   commands there risks writing settings, so it is left alone.
 ///
-/// The device is reached through `retrieveConnectedPeripherals`, which hands
-/// back a peripheral the system already owns: no scanning, no pairing, and it
-/// keeps working as a pointing device throughout. Needs the Bluetooth
-/// permission (`NSBluetoothAlwaysUsageDescription`); denied, this reports nil.
+/// What does work is Keychron's own command on that same 0xFF60 channel; see
+/// `ReceiverBattery`. The two sources never both answer, since the device is
+/// on one link at a time; Bluetooth wins if they somehow do.
+///
+/// The Bluetooth device is reached through `retrieveConnectedPeripherals`,
+/// which hands back a peripheral the system already owns: no scanning, no
+/// pairing, and it keeps working as a pointing device throughout. Needs the
+/// Bluetooth permission (`NSBluetoothAlwaysUsageDescription`); denied, only the
+/// receiver route is left.
 final class BatteryMonitor: NSObject, @unchecked Sendable {
     /// Called on the main actor, only when the value changes. nil means no
-    /// level is available: device absent, on the dongle, or Bluetooth denied.
+    /// level is available: device absent, asleep, or unreachable both ways.
     var onChange: (@MainActor (Int?) -> Void)?
 
     // Instance rather than static: CBUUID is not Sendable, and Swift 6 rejects
@@ -42,18 +44,22 @@ final class BatteryMonitor: NSObject, @unchecked Sendable {
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
     private var characteristic: CBCharacteristic?
-    private var level: Int? {
-        didSet {
-            guard level != oldValue else { return }
-            let value = level
-            DispatchQueue.main.async { [onChange] in
-                MainActor.assumeIsolated { onChange?(value) }
-            }
-        }
-    }
+    private lazy var receiver = ReceiverBattery(queue: queue)
+    private var bluetoothLevel: Int? { didSet { publish() } }
+    private var receiverLevel: Int? { didSet { publish() } }
+    private var published: Int?
 
     init(productName: String = "Nape Pro") {
         self.productName = productName
+    }
+
+    private func publish() {
+        let value = bluetoothLevel ?? receiverLevel
+        guard value != published else { return }
+        published = value
+        DispatchQueue.main.async { [onChange] in
+            MainActor.assumeIsolated { onChange?(value) }
+        }
     }
 
     /// Creating the central is what triggers the Bluetooth permission prompt,
@@ -62,6 +68,9 @@ final class BatteryMonitor: NSObject, @unchecked Sendable {
         queue.async {
             guard self.central == nil else { return }
             self.central = CBCentralManager(delegate: self, queue: self.queue)
+            self.receiver.onLevel = { [weak self] in self?.receiverLevel = $0 }
+            self.receiver.start()
+            self.receiver.query()
         }
     }
 
@@ -73,15 +82,20 @@ final class BatteryMonitor: NSObject, @unchecked Sendable {
             self.peripheral = nil
             self.characteristic = nil
             self.central = nil
-            self.level = nil
+            self.receiver.stop()
+            self.bluetoothLevel = nil
+            self.receiverLevel = nil
         }
     }
 
     /// Re-reads the level, and re-checks whether the device is reachable at
-    /// all. Switching the device from the dongle to Bluetooth after launch
-    /// produces no notification, so this has to be polled.
+    /// all. Switching the device between the receiver and Bluetooth produces
+    /// no notification, so this has to be polled.
     func refresh() {
-        queue.async { self.attach() }
+        queue.async {
+            self.attach()
+            self.receiver.query()
+        }
     }
 
     private func attach() {
@@ -95,7 +109,7 @@ final class BatteryMonitor: NSObject, @unchecked Sendable {
         guard let found else {
             peripheral = nil
             characteristic = nil
-            level = nil
+            bluetoothLevel = nil
             return
         }
         peripheral = found
@@ -111,7 +125,7 @@ extension BatteryMonitor: CBCentralManagerDelegate {
         } else {
             peripheral = nil
             characteristic = nil
-            level = nil
+            bluetoothLevel = nil
         }
     }
 
@@ -122,14 +136,14 @@ extension BatteryMonitor: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
         self.peripheral = nil
-        level = nil
+        bluetoothLevel = nil
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
         self.peripheral = nil
         characteristic = nil
-        level = nil
+        bluetoothLevel = nil
     }
 }
 
@@ -154,6 +168,6 @@ extension BatteryMonitor: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic,
                     error: Error?) {
         guard error == nil, let byte = characteristic.value?.first else { return }
-        level = min(100, Int(byte))
+        bluetoothLevel = min(100, Int(byte))
     }
 }

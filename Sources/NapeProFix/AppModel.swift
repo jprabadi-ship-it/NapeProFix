@@ -43,9 +43,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The device's battery level, or nil when it publishes none. Only a
-    /// Bluetooth connection carries one; on the dongle there is nothing to
-    /// read. See `BatteryMonitor`.
+    /// The device's battery level, or nil when it cannot be reached. Read
+    /// over Bluetooth or through the 2.4GHz receiver. See `BatteryMonitor`.
     @Published private(set) var batteryPercent: Int?
 
     private lazy var tap = GestureTap(snapshot: snapshot)
@@ -122,10 +121,10 @@ final class AppModel: ObservableObject {
 
     // MARK: - Battery
 
-    /// The device pushes changes while connected, so the timer is only there
-    /// to notice the device appearing on Bluetooth after launch — moving it
-    /// off the dongle produces no notification. Five minutes is plenty, and
-    /// the check runs on the monitor's own queue, nowhere near the event path.
+    /// Over Bluetooth the device pushes changes; through the receiver it has
+    /// to be asked, and moving it between the two produces no notification
+    /// either. Five minutes is plenty for a battery, and the check runs on the
+    /// monitor's own queue, nowhere near the event path.
     private func startBatteryPolling() {
         guard batteryTimer == nil else { return }
         battery.onChange = { [weak self] value in self?.batteryPercent = value }

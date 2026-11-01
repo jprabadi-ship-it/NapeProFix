@@ -63,7 +63,7 @@
       </div>
       <div class="card">
         <h3>Battery level in the menu bar</h3>
-        <p>The remaining charge sits next to the icon. Over Bluetooth it is read straight from the device's BLE Battery Service. On the dongle there is nothing to read, so nothing is shown.</p>
+        <p>The remaining charge sits next to the icon, over Bluetooth or on the 2.4GHz receiver. On the receiver it is asked for with the same read-only command Keychron Launcher uses.</p>
       </div>
       <div class="card">
         <h3>Launch at login</h3>
@@ -143,7 +143,6 @@
     <table>
       <tr><th>Limit</th><th>Why</th></tr>
       <tr><td>Only four gesture directions</td><td>The firmware does not report diagonals separately</td></tr>
-      <tr><td>No battery level on the dongle</td><td>It connects as USB HID without a battery usage page. Over Bluetooth the level is shown</td></tr>
       <tr><td>Device layers are not mirrored</td><td>Only key codes arrive; no layer information comes with them</td></tr>
     </table>
   </div>
