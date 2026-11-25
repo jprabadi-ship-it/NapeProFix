@@ -209,7 +209,8 @@ public final class GigowatUpdater: NSObject {
         } catch {
             hideProgress()
             let msg = (error as? UpdateError)?.message ?? error.localizedDescription
-            log("更新に失敗: \(msg)")
+            let ns = error as NSError
+            log("更新に失敗: \(msg) [\(ns.domain) \(ns.code) \(ns.userInfo[NSURLErrorFailingURLStringErrorKey] ?? "")]")
             let a = makeAlert(gwL("更新できませんでした", "The update couldn’t be installed"),
                               gwL("\(msg)\n\nいまの版はそのまま使えます。配布ページから新しい版を入れることもできます。",
                                 "\(msg)\n\nYour current version is unchanged. You can also install the new version from the download page."))
