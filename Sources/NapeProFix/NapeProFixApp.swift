@@ -50,6 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
         showSetupOnFirstLaunch()
+
+        // gigowat.com の台帳で新しい版を確かめ、あれば入れ替えるかを聞く
+        GigowatUpdater.shared.checkOnLaunch(slug: "napeprofix")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -96,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(layerItem)
 
         menu.addItem(.separator())
+        menu.addItem(item("アップデートを確認…", #selector(checkForUpdates)))
         menu.addItem(item("終了", #selector(quit)))
 
         menu.delegate = self
@@ -199,6 +203,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !UserDefaults.standard.bool(forKey: key) else { return }
         UserDefaults.standard.set(true, forKey: key)
         openSettings()
+    }
+
+    @objc private func checkForUpdates() {
+        GigowatUpdater.shared.checkNow(slug: "napeprofix")
     }
 
     @objc private func quit() {

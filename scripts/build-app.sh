@@ -11,18 +11,21 @@ contents_dir="$app_dir/Contents"
 
 export CLANG_MODULE_CACHE_PATH="/tmp/napeprofix-clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="/tmp/napeprofix-swift-cache"
+# Build products stay off Google Drive too: Drive syncs every intermediate
+# file and can turn bundles into plain archives mid-build.
+scratch_dir="${NAPEPROFIX_SCRATCH_PATH:-/tmp/napeprofix-build}"
 
 cd "$project_dir"
-swift build -c release
+swift build -c release --scratch-path "$scratch_dir"
 
 rm -rf "$app_dir"
 mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources"
-cp "$project_dir/.build/release/NapeProFix" "$contents_dir/MacOS/NapeProFix"
+cp "$scratch_dir/release/NapeProFix" "$contents_dir/MacOS/NapeProFix"
 cp "$project_dir/Resources/Info.plist" "$contents_dir/Info.plist"
 cp "$project_dir/Resources/AppIcon.icns" "$contents_dir/Resources/AppIcon.icns"
 # SwiftPM keeps target resources in their own bundle; Bundle.module looks for
 # it next to the executable's resources.
-cp -R "$project_dir/.build/release/NapeProFix_NapeProFix.bundle" "$contents_dir/Resources/"
+cp -R "$scratch_dir/release/NapeProFix_NapeProFix.bundle" "$contents_dir/Resources/"
 
 # A stable signing identity keeps the app's designated requirement unchanged
 # across rebuilds, so the accessibility approval survives an update. Ad-hoc
